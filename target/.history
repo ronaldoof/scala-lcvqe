@@ -1,0 +1,8 @@
+compile
+clean compile
+clean
+compile
+gen-idea
+{file:/Users/rflorence/git/LCVQE/}lcvqe/appConfiguration
+scalastyleGenerateConfig
+scalastyle
