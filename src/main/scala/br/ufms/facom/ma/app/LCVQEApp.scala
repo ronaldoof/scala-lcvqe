@@ -11,7 +11,8 @@ object LCVQEApp {
 
     val data = CSVInput.readData(args(0))
     val constraints = CSVInput.readConstraint(args(1), data)
-    val result = LCVQE.run(data, Option(constraints), args(2).toInt, args(3).toInt, Cosine)
+    val lcvqe = LCVQE.apply(data, Option(constraints), args(2).toInt, args(3).toInt)(Cosine)
+    val result = lcvqe.run()
     val xml = XMLOutput.exportResult(result)
     println(xml)
   }

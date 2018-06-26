@@ -6,7 +6,7 @@ import br.ufms.facom.ma.lcvqe.util.KmeansUtil
 /**
   * Class that implements the LCVQE Algorithm.
   */
-case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: Int, iterations: Int, distanceCalculator: DistanceCalculator = Cosine) {
+case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: Int, iterations: Int)(implicit distanceCalculator: DistanceCalculator = Cosine) {
 
   private case class CommonDistance (distA: Double, distB: Double, distC: Double, distD: Double);
   private case class RtoCMMDistance(distA: Double, distB: Double)
@@ -35,7 +35,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
               applyCL(constraint, clusters)
             })
           }
-          case None => _
+          case None =>
         }
 
 //      reposiciona os clusters
@@ -62,38 +62,37 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
   }
 
 
-  private def applyML(constraint: Constraint): Unit ={
+  private def applyML(constraint: Constraint)(implicit distanceCalculator: DistanceCalculator): Unit ={
     val commonDistance = calculateCommonDistances(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
     val a = calculateMLA(commonDistance)
     val b = calculateMLB(commonDistance)
     val c = calculateMLC(commonDistance)
-    math.min(a, math.min(b, c)) match {
-      case b => {
-        constraint.pointB.cluster = constraint.pointA.cluster
-        constraint.pointA.cluster.get.addPoint(constraint.pointB)
-      }
-      case c => {
-        constraint.pointA.cluster = constraint.pointB.cluster
-        constraint.pointB.cluster.get.addPoint(constraint.pointA)
-      }
-     }
+
+    val min = math.min(a, math.min(b, c))
+    if (min == b) {
+      constraint.pointB.cluster = constraint.pointA.cluster
+      constraint.pointA.cluster.get.addPoint(constraint.pointB)
+    } else if (min == c) {
+      constraint.pointA.cluster = constraint.pointB.cluster
+      constraint.pointB.cluster.get.addPoint(constraint.pointA)
+    }
+
   }
 
-  private def applyCL(constraint: Constraint, clusters: List[Cluster]): Unit ={
+  private def applyCL(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator): Unit ={
     val commonDistance = calculateCommonDistances(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
     val rtoCMMDistances = calculateRtoCMMDistances(clusters, constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
     val a = calculateCLA(commonDistance, rtoCMMDistances)
     val b = calculateCLB(commonDistance, rtoCMMDistances)
     val c = calculateCLC(commonDistance)
-    math.min(a, math.min(b, c)) match {
-      case a => {
-        constraint.pointB.cluster = constraint.pointA.cluster
-        constraint.pointA.cluster.get.addPoint(constraint.pointB)
-      }
-      case b => {
-        constraint.pointA.cluster = constraint.pointB.cluster
-        constraint.pointB.cluster.get.addPoint(constraint.pointA)
-      }
+
+    val min = math.min(a, math.min(b, c))
+    if (min == a) {
+      constraint.pointB.cluster = constraint.pointA.cluster
+      constraint.pointA.cluster.get.addPoint(constraint.pointB)
+    } else if (min == b) {
+      constraint.pointA.cluster = constraint.pointB.cluster
+      constraint.pointB.cluster.get.addPoint(constraint.pointA)
     }
   }
 
@@ -109,7 +108,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
   }
 
   private def calculateRtoCMMDistances(clusters: List[Cluster], constraint: Constraint, closestClusterToA: Cluster,
-                                   closestClusterToB: Cluster): RtoCMMDistance = {
+                                   closestClusterToB: Cluster)(implicit distanceCalculator: DistanceCalculator): RtoCMMDistance = {
     val rn: Point = calculateR(constraint, closestClusterToB)
     val rj: Point = calculateR(constraint, closestClusterToA)
     val mMj = mM(clusters, closestClusterToA, rj)
