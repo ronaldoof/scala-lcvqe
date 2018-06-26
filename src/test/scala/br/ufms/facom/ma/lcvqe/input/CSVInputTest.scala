@@ -12,7 +12,7 @@ class CSVInputTest extends FunSpec with Matchers {
 
   describe("Reading a csv file should produce a list of points") {
    it(" should be equal to expected data "){
-    val points = CSVInput.readCSV("/Users/rflorence/git/LCVQE/src/main/resources/data.csv")
+    val points = CSVInput.readData("/Users/rflorence/git/LCVQE/src/main/resources/data.csv")
     points(0) shouldEqual(pointA)
     points(1) shouldEqual(pointB)
     points(2) shouldEqual(pointC)
