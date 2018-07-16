@@ -47,10 +47,14 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
       }
 
       val newResult = Result(Some(data), Some(clusters))
-      if (newResult.quadraticError < bestResult.quadraticError) bestResult = newResult
+      if (newResult.error(LCVQEError) < bestResult.error(LCVQEError)) bestResult = newResult
     }
     bestResult
 
+  }
+
+  def LCVQEError(cluster: Cluster): Double = {
+//    val tj1 =
   }
 
   /**
@@ -71,15 +75,19 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     val c = calculateMLC(commonDistance)
 
     val min = math.min(a, math.min(b, c))
-    if (min == a) {
-      constraint.pointA.cluster.get.addGMLV(constraint.pointA)
-      constraint.pointB.cluster.get.addGMLV(constraint.pointB)
-    } else if (min == b) {
-      constraint.pointB.cluster = constraint.pointA.cluster
-      constraint.pointA.cluster.get.addPoint(constraint.pointB)
-    } else if (min == c) {
-      constraint.pointA.cluster = constraint.pointB.cluster
-      constraint.pointB.cluster.get.addPoint(constraint.pointA)
+    min match {
+      case `a` => {
+        constraint.pointA.cluster.get.addGMLV(constraint.pointA)
+        constraint.pointB.cluster.get.addGMLV(constraint.pointB)
+      }
+      case `b` => {
+        constraint.pointB.cluster = constraint.pointA.cluster
+        constraint.pointA.cluster.get.addPoint(constraint.pointB)
+      }
+      case `c` => {
+        constraint.pointA.cluster = constraint.pointB.cluster
+        constraint.pointB.cluster.get.addPoint(constraint.pointA)
+      }
     }
 
   }
@@ -174,11 +182,11 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
   }
 
   def calculateCLA(commonDistance: CommonDistance, rtoCMMDistance: RtoCMMDistance) : Double = {
-    (1/2 * commonDistance.distA) +  (1/2 * commonDistance.distD) + (1/2 * (rtoCMMDistance.distA))
+    (1/2 * commonDistance.distA) +  (1/2 * commonDistance.distD) + (1/2 * rtoCMMDistance.distA)
   }
 
   def calculateCLB(commonDistance: CommonDistance, rtoCMMDistance: RtoCMMDistance) : Double = {
-    (1/2 * commonDistance.distC) +  (1/2 * commonDistance.distB) + (1/2 * (rtoCMMDistance.distB))
+    (1/2 * commonDistance.distC) +  (1/2 * commonDistance.distB) + (1/2 * rtoCMMDistance.distB)
   }
 
   def calculateCLC(commonDistance: CommonDistance) : Double = {
