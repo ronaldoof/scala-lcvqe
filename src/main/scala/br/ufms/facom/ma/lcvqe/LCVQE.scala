@@ -73,14 +73,20 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     val c = calculateMLC(commonDistance)
 
     val min = math.min(a, math.min(b, c))
-    if (min == b) {
-      constraint.pointB.cluster = constraint.pointA.cluster
-      constraint.pointA.cluster.get.addPoint(constraint.pointB)
-    } else if (min == c) {
-      constraint.pointA.cluster = constraint.pointB.cluster
-      constraint.pointB.cluster.get.addPoint(constraint.pointA)
+    min match {
+      case `a` => {
+        constraint.pointA.cluster.get.addGMLV(constraint.pointA)
+        constraint.pointB.cluster.get.addGMLV(constraint.pointB)
+      }
+      case `b` => {
+        constraint.pointB.cluster = constraint.pointA.cluster
+        constraint.pointA.cluster.get.addPoint(constraint.pointB)
+      }
+      case `c` => {
+        constraint.pointA.cluster = constraint.pointB.cluster
+        constraint.pointB.cluster.get.addPoint(constraint.pointA)
+      }
     }
-
   }
 
   private def applyCL(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator): Unit ={
@@ -91,12 +97,17 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     val c = calculateCLC(commonDistance)
 
     val min = math.min(a, math.min(b, c))
-    if (min == a) {
-      constraint.pointB.cluster = constraint.pointA.cluster
-      constraint.pointA.cluster.get.addPoint(constraint.pointB)
-    } else if (min == b) {
-      constraint.pointA.cluster = constraint.pointB.cluster
-      constraint.pointB.cluster.get.addPoint(constraint.pointA)
+    min match {
+      case `a` => {
+        constraint.pointB.cluster = constraint.pointA.cluster
+        constraint.pointA.cluster.get.addPoint(constraint.pointB)
+
+      }
+      case `b` => {
+        constraint.pointA.cluster = constraint.pointB.cluster
+        constraint.pointB.cluster.get.addPoint(constraint.pointA)
+      }
+      case _ =>
     }
   }
 
