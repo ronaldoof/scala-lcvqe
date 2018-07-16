@@ -6,18 +6,19 @@ case class Cluster (val id: String, var centroid: Point,
                     val points: ListBuffer[Point] = new ListBuffer[Point](),
                     val descriptors: ListBuffer[String] = new ListBuffer[String]()) {
 
+  val gMLV: ListBuffer[Point] = ListBuffer.empty[Point]
+
+  val gCLV: ListBuffer[Point] = ListBuffer.empty[Point]
+
   def addPoint(point: Point): Unit = this.points += point
+
+  def addGMLV(point: Point): Unit = this.gMLV += point
+
+  def addGCLV(point: Point): Unit = this.gCLV += point
 
   def descriptorsIterator: Iterator[String] = this.descriptors.iterator
 
   def addDescriptor (descriptor: String): Unit = this.descriptors += descriptor
-
-  /**
-    * calculates the quadratic error for a cluster as a Sum of the distances of all points to the cluster
-    * @return The quadratic error
-    */
-  def quadraticError: Double = this.points.map(_.distanceTo(this.centroid)).sum
-
 
   /**
     * Reposition the cluster based on the average of each dimension of his points and verify if the reposition caused

@@ -45,10 +45,14 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
       }
 
       val newResult = Result(Some(data), Some(clusters))
-      if (newResult.quadraticError < bestResult.quadraticError) bestResult = newResult
+      if (newResult.error(LCVQEError) < bestResult.error(LCVQEError)) bestResult = newResult
     }
     bestResult
 
+  }
+
+  def LCVQEError(cluster: Cluster): Double = {
+//    val tj1 =
   }
 
   /**
@@ -147,11 +151,11 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
   }
 
   def calculateCLA(commonDistance: CommonDistance, rtoCMMDistance: RtoCMMDistance) : Double = {
-    (1/2 * commonDistance.distA) +  (1/2 * commonDistance.distD) + (1/2 * (rtoCMMDistance.distA))
+    (1/2 * commonDistance.distA) +  (1/2 * commonDistance.distD) + (1/2 * rtoCMMDistance.distA)
   }
 
   def calculateCLB(commonDistance: CommonDistance, rtoCMMDistance: RtoCMMDistance) : Double = {
-    (1/2 * commonDistance.distC) +  (1/2 * commonDistance.distB) + (1/2 * (rtoCMMDistance.distB))
+    (1/2 * commonDistance.distC) +  (1/2 * commonDistance.distB) + (1/2 * rtoCMMDistance.distB)
   }
 
   def calculateCLC(commonDistance: CommonDistance) : Double = {
