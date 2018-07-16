@@ -4,9 +4,15 @@ import scala.collection.mutable.ListBuffer
 
 case class Cluster (val id: String, var centroid: Point,
                     val points: ListBuffer[Point] = new ListBuffer[Point](),
+                    val gMLV : ListBuffer[Point] = new ListBuffer[Point](),
+                    val gCLV : ListBuffer[Point] = new ListBuffer[Point](),
                     val descriptors: ListBuffer[String] = new ListBuffer[String]()) {
 
   def addPoint(point: Point): Unit = this.points += point
+
+  def addGMLV(point: Point): Unit = this.gMLV += point
+
+  def addGCLV(point: Point): Unit = this.gCLV += point
 
   def descriptorsIterator: Iterator[String] = this.descriptors.iterator
 
@@ -30,7 +36,11 @@ case class Cluster (val id: String, var centroid: Point,
 
     this.centroid.dimensions.indices.foreach {
       i => {
-        val average = this.points.map(p => p.dimensions(i)).sum / this.centroid.dimensions.length
+        val nj = this.points.size + (1/2 * this.gMLV.size) + this.gCLV.size
+        val pointSum = this.points.map(p => p.dimensions(i)).sum
+        val gMLVSum = this.gMLV.map(m => m.dimensions(i)).sum
+        val gCLVSum = this.gCLV.map(c => c.dimensions(i)).sum
+        val average = pointSum + (1/2 * gMLVSum) + gCLVSum / nj
         newDimensions(i) = average
       }
     }
