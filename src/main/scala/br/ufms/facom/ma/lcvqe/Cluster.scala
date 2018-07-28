@@ -20,6 +20,7 @@ case class Cluster (val id: String, var centroid: Point,
 
   def addDescriptor (descriptor: String): Unit = this.descriptors += descriptor
 
+  def violatedConstraints: List[Point] = gCLV.toList ::: gMLV.toList
   /**
     * Reposition the cluster based on the average of each dimension of his points and verify if the reposition caused
     * a change on the cluster position
@@ -35,7 +36,7 @@ case class Cluster (val id: String, var centroid: Point,
         val pointSum = this.points.map(p => p.dimensions(i)).sum
         val gMLVSum = this.gMLV.map(m => m.dimensions(i)).sum
         val gCLVSum = this.gCLV.map(c => c.dimensions(i)).sum
-        val average = pointSum + (1/2 * gMLVSum) + gCLVSum / nj
+        val average = (pointSum + (1/2 * gMLVSum) + gCLVSum) / nj
         newDimensions(i) = average
       }
     }

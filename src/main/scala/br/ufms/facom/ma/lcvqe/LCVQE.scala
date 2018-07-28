@@ -46,15 +46,25 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
         i = i + 1
       }
 
+      def calcError: (Cluster => Double) = lCVQEError(clusters, _)
+
       val newResult = Result(Some(data), Some(clusters))
-      if (newResult.error(LCVQEError) < bestResult.error(LCVQEError)) bestResult = newResult
+      if (newResult.error(calcError) < bestResult.error(calcError)) bestResult = newResult
+      printf("LCVQE = %d",bestResult.error(calcError))
     }
     bestResult
 
   }
 
-  def LCVQEError(cluster: Cluster): Double = {
-//    val tj1 =
+  def lCVQEError(clusters: List[Cluster], cluster: Cluster): Double = {
+
+    val tj1 = math.pow(cluster.points.map(p => distanceCalculator.calculateDistance(p, cluster.centroid)).sum,2)
+
+    val tj23 = 1/2 * math.pow(cluster.violatedConstraints.map(distanceCalculator.calculateDistance(_, cluster.centroid)).sum,2)
+
+    val tj4 = 1/2 * math.pow(cluster.points.map(p => distanceCalculator.calculateDistance(mM(clusters, cluster, p).centroid,p)).sum,2)
+
+    tj1 + tj23 + tj4
   }
 
   /**
@@ -106,23 +116,27 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     val c = calculateCLC(commonDistance)
 
     val min = math.min(a, math.min(b, c))
-    if (min == a) {
-      val rj: Point = calculateR(constraint, constraint.pointA.cluster.get)
-      val mMj = mM(clusters, constraint.pointA.cluster.get, rj)
+    min match {
+      case `a` => {
+        val rj: Point = calculateR(constraint, constraint.pointA.cluster.get)
+        val mMj = mM(clusters, constraint.pointA.cluster.get, rj)
 
-      mMj.addGCLV(constraint.pointA)
-      constraint.pointB.cluster = constraint.pointA.cluster
-      constraint.pointA.cluster.get.addPoint(constraint.pointB)
-    } else if (min == b) {
-      val rn: Point = calculateR(constraint, constraint.pointB.cluster.get)
-      val mMn = mM(clusters, constraint.pointB.cluster.get, rn)
+        mMj.addGCLV(constraint.pointA)
+        constraint.pointB.cluster = constraint.pointA.cluster
+        constraint.pointA.cluster.get.addPoint(constraint.pointB)
+      }
+      case `b` => {
+        val rn: Point = calculateR(constraint, constraint.pointB.cluster.get)
+        val mMn = mM(clusters, constraint.pointB.cluster.get, rn)
 
-      mMn.addGCLV(constraint.pointB)
-      constraint.pointA.cluster = constraint.pointB.cluster
-      constraint.pointB.cluster.get.addPoint(constraint.pointA)
-    } else if (min == c) {
-      constraint.pointA.cluster.get.addGCLV(constraint.pointA)
-      constraint.pointB.cluster.get.addGCLV(constraint.pointB)
+        mMn.addGCLV(constraint.pointB)
+        constraint.pointA.cluster = constraint.pointB.cluster
+        constraint.pointB.cluster.get.addPoint(constraint.pointA)
+      }
+      case `c` => {
+        constraint.pointA.cluster.get.addGCLV(constraint.pointA)
+        constraint.pointB.cluster.get.addGCLV(constraint.pointB)
+      }
     }
   }
 
