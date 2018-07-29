@@ -29,15 +29,16 @@ class PointTest extends FlatSpec with Matchers{
   "Two points with the same coordinates" should "have distance equal 0" in {
     val a = Point("a", Array(1.5,1.5))
     val b = Point("b", Array(1.5,1.5))
-
-    a.distanceTo(b) shouldBe 0
+    val c = a.distanceTo(b)
+    c shouldBe 0
   }
 
   "Two points with coordinates (0,0) and (15, 15)" should "have Euclidean distance equals to 450" in {
+
     val a = Point("a", Array(0,0))
     val b = Point("b", Array(15,15))
 
-    a.distanceTo(b) shouldBe 450
+    a.distanceTo(b)(Euclidean) shouldBe 450
 
   }
 

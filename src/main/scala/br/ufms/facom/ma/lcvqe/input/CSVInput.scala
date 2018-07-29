@@ -13,7 +13,7 @@ object CSVInput {
   }
 
   def readData(path: String): List[Point] = {
-    val reader = CSVReader.open(path)
+    val reader = CSVReader.open(path)(MyFormat)
     val data = reader.toStream.tail.map { item =>
       Point(item.head, item.tail.map(_.toDouble).toArray)
     }.toList

@@ -4,7 +4,7 @@ case class Point (val id: String, val dimensions: Array[Double], var cluster: Op
 
   def getDimension(dimension: Int): Double = dimensions(dimension)
 
-  def distanceTo(pointB: Point, calculator: DistanceCalculator = Cosine): Double = calculator.calculateDistance(this, pointB)
+  def distanceTo(pointB: Point)(implicit calculator: DistanceCalculator = Cosine): Double = calculator.calculateDistance(this, pointB)
 
   def clearCluster: Unit = {this.cluster = None}
 
