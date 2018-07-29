@@ -14,7 +14,6 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
   private case class RtoCMMDistance(distA: Double, distB: Double)
 
   def run(): Result = {
-    println(s"=======================\nInitializing LCVQE APP \n=======================   \n k = ${k}\n iterations = ${iterations}\n=======================")
 
     var bestResult = Result()
     (0 to 10).foreach { _ =>
@@ -50,7 +49,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
 
       val newResult = Result(Some(data), Some(clusters))
       if (newResult.error(calcError) < bestResult.error(calcError)) bestResult = newResult
-      printf("LCVQE = %d",bestResult.error(calcError))
+      printf("LCVQE = %f1.3",bestResult.error(calcError))
     }
     bestResult
 

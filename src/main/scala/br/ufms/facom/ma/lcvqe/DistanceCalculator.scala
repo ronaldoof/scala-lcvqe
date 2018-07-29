@@ -17,15 +17,24 @@ object Euclidean extends DistanceCalculator{
 object Cosine extends DistanceCalculator{
 
   def calculateDistance(pointA: Point, pointB: Point): Double ={
-    val normA = euclideanNorm(pointA)
-    val normB = euclideanNorm(pointB)
-    val dot = dotProduct(pointA, pointB)
-    1 - (dot / (normA * normB))
-  }
+    try{
+      val normA = math.sqrt(dotProduct(pointA,pointA))
+      val normB = math.sqrt(dotProduct(pointB,pointB))
+      val dot = dotProduct(pointA, pointB)
+      if(normA == 0 || normB == 0) {
+        0
+      } else {
+        val cosine = dot / (normA * normB)
 
-
-  def euclideanNorm (point: Point): Double = {
-     scala.math.sqrt(point.dimensions.map(scala.math.pow(_,2)).sum)
+        BigDecimal(1 - cosine).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+      }
+    } catch {
+      case e: NumberFormatException => printf("Error in number")
+        throw e
+      case t: Throwable => printf("Unexpected exception")
+        t.printStackTrace()
+        throw t
+    }
   }
 
   def dotProduct(pointA: Point, pointB: Point): Double = {
