@@ -1,6 +1,6 @@
 package br.ufms.facom.ma.lcvqe
 
-import br.ufms.facom.ma.lcvqe.util.KmeansUtil
+import br.ufms.facom.ma.lcvqe.util.{KmeansUtil, Sequence}
 
 import scala.collection.mutable.ListBuffer
 
@@ -15,43 +15,73 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
 
   def run(): Result = {
 
+    val seq = Sequence
+    val root = Cluster(seq.next(), Point("root_point", Array(0,0)))
+    val clusters = initClusters(data, root)
+    val clusterHistory =  ListBuffer(root)
+    val stack = ListBuffer.empty[Cluster]
+
+    clusters.foreach(cl => {
+      stack += cl
+      clusterHistory += cl
+    })
+
     var bestResult = Result()
-    (0 to 10).foreach { _ =>
-      val clusters = initClusters(k, data);
+    buildRootLevel(clusters)
+
+    while(!stack.isEmpty) {
+
       var changed = true
-      var changedList = List.empty[Boolean]
       var i = 0
-      while (changed && i < iterations) {
-//      limpa os clusters
-        clusters.foreach(c => c.clear)
 
-//      calcula a funcao erro e tenta minimizar
-        data.foreach(p => p.assignClosest(clusters)(distanceCalculator))
+      // remove o topo da pilha
+      val actCluster = stack.head
+      stack.remove(0)
 
-//      aplica regra de Must Link e Cannot Link do LCVQE
-        constraints match {
-          case Some(constraints) => {
-            constraints.foreach(constraint => {
-              applyML(constraint)
-              applyCL(constraint, clusters)
-            })
-          }
-          case None =>
+      if(actCluster.points.size > 1 && actCluster.quadraticError > 0) {
+        // o novo conjunto de dados e composto pelos pontos do cluster no topo da pilha
+        val actData = actCluster.points.toList
+        // inicializa os clusteres desse nivel
+        val actClusters = initHClusters(actData)
+        def calcError: (Cluster => Double) = lCVQEError(actClusters, _)
+
+
+        // executa o LCVQE para o conjunto de pontos do cluster send repartido ate convergencia
+        while (changed && i < iterations) {
+
+          changed = applyLCVQE (actClusters, actData)
+
+          i = i + 1
         }
 
-//      reposiciona os clusters
-        changed = clusters.map(c => c.reposition).reduceLeft(_ || _)
+        val newResult = Result(Some(actData), Some(actClusters))
+        if (newResult.error(calcError) < bestResult.error(calcError)) bestResult = newResult
 
-        i = i + 1
+        actClusters.foreach(clu => stack += clu)
       }
-
-      def calcError: (Cluster => Double) = lCVQEError(clusters, _)
-
-      val newResult = Result(Some(data), Some(clusters))
-      if (newResult.error(calcError) < bestResult.error(calcError)) bestResult = newResult
-      printf("LCVQE = %f1.3",bestResult.error(calcError))
     }
     bestResult
+
+  }
+
+
+  def applyLCVQE (actClusters: List[Cluster], data: List[Point]): Boolean = {
+    //      limpa os clusters
+    actClusters.foreach(c => c.clear)
+
+    //      calcula a funcao erro e tenta minimizar
+    data.foreach(p => p.assignClosest(actClusters)(distanceCalculator))
+
+    val actConstraints = constraints.getOrElse(List.empty[Constraint]).filter(cons => data.contains(cons.pointA) || data.contains(cons.pointB))
+
+    //      aplica regra de Must Link e Cannot Link do LCVQE
+    actConstraints.foreach(constraint => {
+      applyML(constraint)
+      applyCL(constraint, actClusters)
+    })
+
+    //      reposiciona os clusters
+    actClusters.map(c => c.reposition).reduceLeft(_ || _)
 
   }
 
@@ -67,17 +97,120 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
   }
 
   /**
+    * Sets a point to a cluster considering constraints. If the point cannot join the cluster
+    * creates a new cluster for that point.
+    * @param point
+    * @param cluster
+    * @return
+    */
+  private def setCluster(point: Point, cluster: Cluster, root: Cluster): Cluster = {
+    val seq = Sequence
+    if (canAddToCluster(point, cluster)) {
+      cluster.addPoint(point)
+      point.cluster = Some(cluster)
+      cluster
+    } else {
+      val newCluster = Cluster(seq.next(), point, ListBuffer(point), father = Some(root))
+      point.cluster = Some(newCluster)
+      newCluster
+    }
+  }
+
+  /**
+    * Inicializa os clusteres encontrando um K minimo para garantir o cumprimento de todas as restricoes.
+    * @param k
+    * @param data
+    * @return
+    */
+  def initClusters(data: List[Point], root: Cluster): List[Cluster] = {
+    val seq = Sequence
+
+    this.constraints.get.filter(_.consType == ConstraintType.MustLink).map {
+      c => c.pointA.cluster match {
+        case None => {
+          c.pointB.cluster match {
+            case None => {
+              val newCluster = Cluster(seq.next(), c.pointA, ListBuffer(c.pointA, c.pointB), father = Some(root))
+              c.pointA.cluster = Some(newCluster)
+              c.pointB.cluster = Some(newCluster)
+              newCluster
+            }
+            case Some(clusterB) => {
+              setCluster(c.pointA, clusterB, root)
+            }
+          }
+        }
+        case Some(clusterA) => {
+          c.pointB.cluster match {
+            case None => {
+              setCluster(c.pointB, clusterA, root)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
     *
     * @param k
     * @param data
     * @return
     */
-  def initClusters(k: Int, data: List[Point]): List[Cluster] = {
-    (0 until k).map(i => Cluster(i.toString, Point.random(s"centroid-$i", KmeansUtil.max(data), KmeansUtil.min(data)))).toList
+  def initHClusters(data: List[Point]): List[Cluster] = {
+    (0 until 2).map(i => Cluster(i.toString, Point.random(s"centroid-$i", KmeansUtil.max(data), KmeansUtil.min(data)))).toList
   }
 
 
+  /**
+    * Constroi o primeiro nivel do algoritmo hierarquico. Nesse caso nos ja temos os clusters
+    * e queremos apenas aperfeicoar o agrupamento usando LCVQE
+    * @param clusters
+    */
+  def buildRootLevel(clusters: List[Cluster]): Unit ={
+
+    var changed = true
+    var i = 0
+    while (changed && i < this.iterations) {
+
+      //      limpa os clusters
+      clusters.foreach(_.clear)
+
+      //      calcula a funcao erro e tenta minimizar
+      data.foreach(p => p.assignClosest(clusters)(distanceCalculator))
+
+      //      aplica regra de Must Link e Cannot Link do LCVQE
+      constraints match {
+        case Some(constraints) => {
+          val (mustLinkConstraints, cannotLinkConstraints) = constraints.partition(_.consType == ConstraintType.MustLink)
+
+          mustLinkConstraints.foreach(constraint => {
+            applyML(constraint)
+          })
+
+          cannotLinkConstraints.foreach(constraint => {
+            applyCL(constraint, clusters)
+          })
+
+        }
+        case None =>
+      }
+
+      //      reposiciona os clusters
+      changed = clusters.map(c => c.reposition).reduceLeft(_ || _)
+
+      i = i + 1
+    }
+  }
+
+  def canAddToCluster(point: Point, cluster: Cluster): Boolean = {
+    val cannotLinkPoints = this.constraints.get.filter(const => const.consType == ConstraintType.CannotLink && (const.pointA == point || const.pointB == point))
+
+    ! cluster.points.exists(cannotLinkPoints.contains)
+  }
+
   private def applyML(constraint: Constraint)(implicit distanceCalculator: DistanceCalculator): Unit ={
+
     val commonDistance = calculateCommonDistances(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
     val a = calculateMLA(commonDistance)
     val b = calculateMLB(commonDistance)
@@ -90,13 +223,32 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
         constraint.pointB.cluster.get.addGMLV(constraint.pointB)
       }
       case `b` => {
-        constraint.pointB.cluster = constraint.pointA.cluster
-        constraint.pointA.cluster.get.addPoint(constraint.pointB)
+        removeFromCluster(constraint.pointB)
+        addToCluster(constraint.pointB, constraint.pointA.cluster)
       }
       case `c` => {
-        constraint.pointA.cluster = constraint.pointB.cluster
-        constraint.pointB.cluster.get.addPoint(constraint.pointA)
+        removeFromCluster(constraint.pointA)
+        addToCluster(constraint.pointA, constraint.pointB.cluster)
       }
+    }
+
+  }
+
+  private def addToCluster(point: Point, cluster: Option[Cluster]): Unit = {
+    point.cluster = cluster
+    cluster match {
+      case Some(cl) => cl.addPoint(point)
+      case None =>
+    }
+  }
+
+  private def removeFromCluster(point: Point): Unit = {
+    point.cluster match {
+     case Some(cluster) => {
+        cluster.points -= point
+        point.cluster = None
+      }
+     case None =>
     }
 
   }
@@ -121,16 +273,16 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
         val mMj = mM(clusters, constraint.pointA.cluster.get, rj)
 
         mMj.addGCLV(constraint.pointA)
-        constraint.pointB.cluster = constraint.pointA.cluster
-        constraint.pointA.cluster.get.addPoint(constraint.pointB)
+        removeFromCluster(constraint.pointB)
+        addToCluster(constraint.pointB, constraint.pointA.cluster)
       }
       case `b` => {
         val rn: Point = calculateR(constraint, constraint.pointB.cluster.get)
         val mMn = mM(clusters, constraint.pointB.cluster.get, rn)
 
         mMn.addGCLV(constraint.pointB)
-        constraint.pointA.cluster = constraint.pointB.cluster
-        constraint.pointB.cluster.get.addPoint(constraint.pointA)
+        removeFromCluster(constraint.pointA)
+        addToCluster(constraint.pointA, constraint.pointB.cluster)
       }
       case `c` => {
         constraint.pointA.cluster.get.addGCLV(constraint.pointA)

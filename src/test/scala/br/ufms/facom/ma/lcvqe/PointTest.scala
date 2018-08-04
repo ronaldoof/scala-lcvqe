@@ -3,6 +3,8 @@ package br.ufms.facom.ma.lcvqe
 
 import org.scalatest.{FlatSpec, Matchers}
 
+import scala.collection.mutable.ListBuffer
+
 class PointTest extends FlatSpec with Matchers{
 
   "A random point generated with max coordenates of (9,10,15) and minimum coordinates of (-9.8, 0, 3) " should
@@ -40,6 +42,15 @@ class PointTest extends FlatSpec with Matchers{
 
     a.distanceTo(b)(Euclidean) shouldBe 450
 
+  }
+
+  "Given a list of clusters one point" should "find the closest cluster and return it" in {
+    val clusters = List(Cluster("0", Point("c1", Array(2.0, 10.0))), Cluster("1", Point("c2", Array(5.0, 7.0))),
+                        Cluster("2", Point("c3", Array(3.0, 2.0))), Cluster("3", Point("c1", Array(3.0, 6.0))))
+    val point = Point("a", Array(1,3))
+    point.assignClosest(clusters)(Euclidean)
+
+    point.cluster shouldBe Some(Cluster("2", Point("c3", Array(3.0, 2.0)), ListBuffer(point)))
   }
 
 }

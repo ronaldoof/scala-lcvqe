@@ -26,7 +26,7 @@ object CSVInput {
     val constraints = reader.toStream.tail.map { item =>
       val pointA: Point = data.find(p => p.id.equals(item(0))).get
       val pointB = data.find(p => p.id.equals(item(1))).get
-      val constraintType = if (item(2).equals("1")) {
+      val constraintType = if (item(2) == "1") {
         ConstraintType.MustLink
       } else {
         ConstraintType.CannotLink

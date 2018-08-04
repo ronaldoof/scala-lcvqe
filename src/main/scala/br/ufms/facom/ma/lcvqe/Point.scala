@@ -10,7 +10,7 @@ case class Point (val id: String, val dimensions: Array[Double], var cluster: Op
 
   def assignClosest(clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator = Cosine): Unit = {
     this.cluster = Option(clusters.sortWith((a, b) => this.distanceTo(a.centroid) < this.distanceTo(b.centroid)).head)
-    this.cluster.map(_.addPoint(this))
+    this.cluster.map(_.addPoint(point = this))
   }
 
   override def canEqual(a: Any): Boolean = a.isInstanceOf[Point]
@@ -25,7 +25,7 @@ case class Point (val id: String, val dimensions: Array[Double], var cluster: Op
   }
 
   override def toString: String = {
-    s""
+    s"${this.id}"
   }
 }
 

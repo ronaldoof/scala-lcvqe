@@ -2,9 +2,10 @@ package br.ufms.facom.ma.lcvqe
 
 import scala.collection.mutable.ListBuffer
 
-case class Cluster (val id: String, var centroid: Point,
-                    val points: ListBuffer[Point] = new ListBuffer[Point](),
-                    val descriptors: ListBuffer[String] = new ListBuffer[String]()) {
+case class Cluster (id: String, var centroid: Point,
+                    points: ListBuffer[Point] = new ListBuffer[Point](),
+                    descriptors: ListBuffer[String] = new ListBuffer[String](),
+                    father: Option[Cluster] = None) {
 
   val gMLV: ListBuffer[Point] = ListBuffer.empty[Point]
 
@@ -51,6 +52,8 @@ case class Cluster (val id: String, var centroid: Point,
   def clear: Unit = {
     this.points.foreach(p => p.clearCluster)
     this.points.clear()
+    this.gCLV.clear()
+    this.gMLV.clear()
   }
 
   override def toString: String = {
@@ -58,4 +61,8 @@ case class Cluster (val id: String, var centroid: Point,
       s"Points: ${this.points.map(_.id).mkString(",")} "
   }
 
+
+  def quadraticError(implicit distanceCalculator: DistanceCalculator): Double = {
+    points.map(p => distanceCalculator.calculateDistance(p, centroid)).sum
+  }
 }
