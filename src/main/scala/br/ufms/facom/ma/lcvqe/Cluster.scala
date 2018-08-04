@@ -22,22 +22,22 @@ case class Cluster (id: String, var centroid: Point,
   def addDescriptor (descriptor: String): Unit = this.descriptors += descriptor
 
   def violatedConstraints: List[Point] = gCLV.toList ::: gMLV.toList
+
   /**
     * Reposition the cluster based on the average of each dimension of his points and verify if the reposition caused
     * a change on the cluster position
     */
   def reposition: Boolean = {
-    if (this.points.isEmpty) false
     val oldCentroid = this.centroid.copy()
     val newDimensions = new Array[Double](this.centroid.dimensions.length)
 
     this.centroid.dimensions.indices.foreach {
       i => {
-        val nj = this.points.size + (1/2 * this.gMLV.size) + this.gCLV.size
+        val nj = this.points.size + (0.5 * this.gMLV.size) + this.gCLV.size
         val pointSum = this.points.map(p => p.dimensions(i)).sum
         val gMLVSum = this.gMLV.map(m => m.dimensions(i)).sum
         val gCLVSum = this.gCLV.map(c => c.dimensions(i)).sum
-        val average = (pointSum + (1/2 * gMLVSum) + gCLVSum) / nj
+        val average = (pointSum + (0.5 * gMLVSum) + gCLVSum) / nj
         newDimensions(i) = average
       }
     }
@@ -49,7 +49,7 @@ case class Cluster (id: String, var centroid: Point,
   /**
     * Clear the cluster from all its points
     */
-  def clear: Unit = {
+  def clear(): Unit = {
     this.points.foreach(p => p.clearCluster)
     this.points.clear()
     this.gCLV.clear()

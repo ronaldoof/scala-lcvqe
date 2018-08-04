@@ -1,8 +1,8 @@
 package br.ufms.facom.ma.app
 
-import br.ufms.facom.ma.lcvqe.{Constraint, Cosine, Euclidean, LCVQE}
 import br.ufms.facom.ma.lcvqe.input.CSVInput
 import br.ufms.facom.ma.lcvqe.output.XMLOutput
+import br.ufms.facom.ma.lcvqe.{Euclidean, LCVQE}
 
 object LCVQEApp {
 
