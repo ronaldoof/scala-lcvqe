@@ -44,7 +44,7 @@ class PointTest extends FlatSpec with Matchers{
 
   }
 
-  "Given a list of clusters one point" should "find the closest cluster and return it" in {
+  "Given a list of clusters one point" should "find the closest cluster and assign itself to it" in {
     val clusters = List(Cluster("0", Point("c1", Array(2.0, 10.0))), Cluster("1", Point("c2", Array(5.0, 7.0))),
                         Cluster("2", Point("c3", Array(3.0, 2.0))), Cluster("3", Point("c1", Array(3.0, 6.0))))
     val point = Point("a", Array(1,3))
