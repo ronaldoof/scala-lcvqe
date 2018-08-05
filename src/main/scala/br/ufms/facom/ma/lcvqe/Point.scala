@@ -1,5 +1,7 @@
 package br.ufms.facom.ma.lcvqe
 
+import br.ufms.facom.ma.lcvqe.util.NumberUtil
+
 case class Point (val id: String, val dimensions: Array[Double], var cluster: Option[Cluster] = None) {
 
   def getDimension(dimension: Int): Double = dimensions(dimension)
@@ -11,6 +13,11 @@ case class Point (val id: String, val dimensions: Array[Double], var cluster: Op
   def assignClosest(clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator = Cosine): Unit = {
     this.cluster = Option(clusters.sortWith((a, b) => this.distanceTo(a.centroid) < this.distanceTo(b.centroid)).head)
     this.cluster.map(_.addPoint(point = this))
+  }
+
+  def assingCluster(cluster: Cluster): Unit = {
+    this.cluster = Some(cluster)
+    cluster.addPoint(point = this)
   }
 
   override def canEqual(a: Any): Boolean = a.isInstanceOf[Point]
@@ -34,7 +41,7 @@ object Point {
 
   def random(id: String, max: Array[Double], min: Array[Double]): Point = {
     val dim: Int = max.length-1
-    val coords: Array[Double] = (0 to dim).map((i) => min(i) + ((max(i) - min(i)) * scala.util.Random.nextDouble)).toArray
+    val coords: Array[Double] = (0 to dim).map((i) => min(i) + ((max(i) - min(i)) * NumberUtil.round(scala.util.Random.nextDouble))).toArray
     Point(id, coords)
   }
 }

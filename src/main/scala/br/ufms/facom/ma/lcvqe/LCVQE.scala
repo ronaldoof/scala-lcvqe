@@ -26,38 +26,28 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
       clusterHistory += cl
     })
 
-    var bestResult = Result()
     buildRootLevel(clusters)
 
     while(stack.nonEmpty) {
-
-      var changed = true
-      var i = 0
-
       // remove o topo da pilha
-      val actCluster = stack.head
-      stack.remove(0)
+      val actCluster = stack.remove(0)
 
       if(actCluster.points.size > 1 && actCluster.quadraticError > 0) {
         // the data set is composed by the points inside the cluster in the top of the stack
         val actData = actCluster.points.toList
         // init the clusters for this level
-        val actClusters = initHClusters(actData)
-        def calcError: Cluster => Double = LCVQEError.calcError(actClusters, _)
+        val actClusters = initHClusters(actData, actCluster)
 
         // runs LCVQE on the data set with K=2 until convergence
-        while (changed && i < iterations) {
-          changed = applyLCVQE (actClusters, actData)
-          i = i + 1
-        }
+        (0 until iterations).takeWhile(_ => applyLCVQE(actClusters, actData))
 
-        val newResult = Result(Some(actData), Some(actClusters))
-        if (newResult.error(calcError) < bestResult.error(calcError)) bestResult = newResult
-
-        actClusters.foreach(clu => stack += clu)
+        // add new cluster to history and stack
+        stack ++=actClusters
+        clusterHistory ++=actClusters
       }
     }
-    bestResult
+
+    Result(Some(data), Some(clusterHistory.toList))
 
   }
 
@@ -73,25 +63,33 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     //      clean the clusters
     actClusters.foreach(c => c.clear())
 
-    // assing each point to the nearest cluster
-    data.foreach(p => p.assignClosest(actClusters)(distanceCalculator))
+    // there is a special case where two points may be so close they won't allow convergence on the algorithm
+    // to overcome that we focefuly assing each point to one cluster
+    if(data.size == 2) {
+      data(0).assingCluster(actClusters(0))
+      data(1).assingCluster(actClusters(1))
+      false
+    } else {
+      // assing each point to the nearest cluster
+      data.foreach(p => p.assignClosest(actClusters)(distanceCalculator))
 
-    // get the constraints that only refers to the points being analyzed
-    val actConstraints = constraints.getOrElse(List.empty[Constraint]).filter(cons => data.contains(cons.pointA) || data.contains(cons.pointB))
+      // get the constraints that only refers to the points being analyzed
+      val actConstraints = constraints.getOrElse(List.empty[Constraint]).filter(cons => data.contains(cons.pointA) || data.contains(cons.pointB))
 
-    // apply LCVQE must link and cannot link rules
-    val (mustLinkConstraints, cannotLinkConstraints) = actConstraints.partition(_.consType == ConstraintType.MustLink)
+      if (constraints.nonEmpty) {
+        // apply LCVQE must link and cannot link rules
+        val (mustLinkConstraints, cannotLinkConstraints) = actConstraints.partition(_.consType == ConstraintType.MustLink)
 
-    mustLinkConstraints.foreach(constraint => {
-      MustLinkRule(constraint)
-    })
-    cannotLinkConstraints.foreach(constraint => {
-      CannotLinkRule(constraint, actClusters)
-    })
-
-    // reposition the cluster using LCVQE rules
-    actClusters.map(c => c.reposition).reduceLeft(_ || _)
-
+        mustLinkConstraints.foreach(constraint => {
+          MustLinkRule(constraint)
+        })
+        cannotLinkConstraints.foreach(constraint => {
+          CannotLinkRule(constraint, actClusters)
+        })
+      }
+      // reposition the cluster using LCVQE rules
+      actClusters.map(c => c.reposition).reduceLeft(_ || _)
+    }
   }
 
   /**
@@ -150,8 +148,11 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     * @param data the data set where the first clusters will be built uppon
     * @return a list of initial clusters
     */
-  def initHClusters(data: List[Point]): List[Cluster] = {
-    (0 until 2).map(i => Cluster(i.toString, Point.random(s"centroid-$i", KmeansUtil.max(data), KmeansUtil.min(data)))).toList
+  def initHClusters(data: List[Point], father: Cluster): List[Cluster] = {
+    (0 until 2).map( _ => {
+      val id = Sequence.next()
+      Cluster(id, Point.random(id = s"centroid-$id", KmeansUtil.max(data), KmeansUtil.min(data)), father = Some(father))
+    }).toList
   }
 
 
@@ -161,11 +162,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     * @param clusters the cluster that the root level will be built uppon
     */
   def buildRootLevel(clusters: List[Cluster]): Unit ={
-
-    var changed = true
-    var i = 0
-    while (changed && i < this.iterations) {
-
+    (0 until this.iterations).takeWhile {
+      _ =>
       // limpa os clusters
       clusters.foreach(_.clear())
 
@@ -186,11 +184,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
           })
         case None =>
       }
-
       //      reposiciona os clusters
-      changed = clusters.map(c => c.reposition).reduceLeft(_ || _)
-
-      i = i + 1
+      clusters.map(c => c.reposition).reduceLeft(_ || _)
     }
   }
 

@@ -12,34 +12,41 @@ object CannotLinkRule {
     * @param distanceCalculator strategy on how to calculate distance
     */
   def apply(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator): Unit ={
-    val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
-    val rtoCMMDistances = CannotLinkDistance.calculateRtoCMMDistances(clusters, constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
-    val a = calculateCLA(commonDistance, rtoCMMDistances)
-    val b = calculateCLB(commonDistance, rtoCMMDistances)
-    val c = calculateCLC(commonDistance)
+    if(constraint.pointA.cluster == constraint.pointB.cluster) {
+      val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
+      val rtoCMMDistances = CannotLinkDistance.calculateRtoCMMDistances(clusters, constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
+      val a = calculateCLA(commonDistance, rtoCMMDistances)
+      val b = calculateCLB(commonDistance, rtoCMMDistances)
+      val c = calculateCLC(commonDistance)
 
-    val min = math.min(a, math.min(b, c))
-    min match {
-      case `a` =>
-        val rj: Point = CannotLinkDistance.calculateR(constraint, constraint.pointA.cluster.get)
-        val mMj = CannotLinkDistance.mM(clusters, constraint.pointA.cluster.get, rj)
+      val min = math.min(a, math.min(b, c))
+      min match {
+        case `a` =>
+          val rj: Point = CannotLinkDistance.calculateR(constraint, constraint.pointA.cluster.get)
+          val mMj = CannotLinkDistance.mM(clusters, constraint.pointA.cluster.get, rj)
 
-        mMj.addGCLV(constraint.pointA)
-        ClusterUtil.removeFromCluster(constraint.pointB)
-        ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
+          mMj.addGCLV(constraint.pointA)
+          ClusterUtil.removeFromCluster(constraint.pointB)
+          ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
 
-      case `b` =>
-        val rn: Point = CannotLinkDistance.calculateR(constraint, constraint.pointB.cluster.get)
-        val mMn = CannotLinkDistance.mM(clusters, constraint.pointB.cluster.get, rn)
+        case `b` =>
+          val rn: Point = CannotLinkDistance.calculateR(constraint, constraint.pointB.cluster.get)
+          val mMn = CannotLinkDistance.mM(clusters, constraint.pointB.cluster.get, rn)
 
-        mMn.addGCLV(constraint.pointB)
-        ClusterUtil.removeFromCluster(constraint.pointA)
-        ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+          mMn.addGCLV(constraint.pointB)
+          ClusterUtil.removeFromCluster(constraint.pointA)
+          ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
 
-      case `c` =>
-        constraint.pointA.cluster.get.addGCLV(constraint.pointA)
-        constraint.pointB.cluster.get.addGCLV(constraint.pointB)
+        case `c` =>
+          constraint.pointA.cluster.get.addGCLV(constraint.pointA)
+          constraint.pointB.cluster.get.addGCLV(constraint.pointB)
 
+        case _ => {
+          printf(s"commonDistance = ${commonDistance} \n")
+          printf(s"rtoCMMDistances = ${rtoCMMDistances} \n")
+          printf(s"a = ${a}, b = ${b}, c = ${c} \n")
+        }
+      }
     }
   }
 
