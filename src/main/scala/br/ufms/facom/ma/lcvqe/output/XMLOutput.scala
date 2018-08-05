@@ -9,12 +9,16 @@ object XMLOutput {
       {result.clusters.getOrElse(List.empty).map { c =>
         <node>
           <id>{c.id}</id>
-          <parent>0</parent>
+          <parent>{c.father match {
+            case Some(father) => father.id
+            case None => ""
+          }
+            }</parent>
           <topic/>
           <documents>
           {c.points.map(_.id).mkString("[", ",", "]")}
           </documents>
-          <descriptors>{c.centroid.dimensions.deep.toString()}</descriptors>
+          <descriptors>{c.centroid.dimensions.mkString(",")}</descriptors>
         </node>
       }}
     </tree>

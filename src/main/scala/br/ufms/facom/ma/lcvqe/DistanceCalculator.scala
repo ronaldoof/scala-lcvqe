@@ -1,5 +1,7 @@
 package br.ufms.facom.ma.lcvqe
 
+import br.ufms.facom.ma.lcvqe.util.NumberUtil
+
 trait DistanceCalculator {
 
   def calculateDistance(pointA: Point, pointB: Point): Double
@@ -8,8 +10,8 @@ trait DistanceCalculator {
 
 object Euclidean extends DistanceCalculator{
 
-  def calculateDistance(pointA: Point, pointB: Point): Double ={
-    (pointA.dimensions, pointB.dimensions).zipped.map((a, b) => scala.math.pow(b - a, 2)).sum
+  def calculateDistance(pointA: Point, pointB: Point): Double = {
+    NumberUtil.round((pointA.dimensions, pointB.dimensions).zipped.map((a, b) => scala.math.pow(b - a, 2)).sum)
   }
 
 }
@@ -26,7 +28,7 @@ object Cosine extends DistanceCalculator{
       } else {
         val cosine = dot / (normA * normB)
 
-        BigDecimal(1 - cosine).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+        NumberUtil.round(1 - cosine)
       }
     } catch {
       case e: NumberFormatException => printf("Error in number")

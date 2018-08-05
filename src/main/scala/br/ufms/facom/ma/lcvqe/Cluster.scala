@@ -1,5 +1,7 @@
 package br.ufms.facom.ma.lcvqe
 
+import br.ufms.facom.ma.lcvqe.util.NumberUtil
+
 import scala.collection.mutable.ListBuffer
 
 case class Cluster (id: String, var centroid: Point,
@@ -28,22 +30,27 @@ case class Cluster (id: String, var centroid: Point,
     * a change on the cluster position
     */
   def reposition: Boolean = {
-    val oldCentroid = this.centroid.copy()
-    val newDimensions = new Array[Double](this.centroid.dimensions.length)
+    if(this.points.size > 0) {
+      val oldCentroid = this.centroid.copy()
+      val newDimensions = new Array[Double](this.centroid.dimensions.length)
 
-    this.centroid.dimensions.indices.foreach {
-      i => {
-        val nj = this.points.size + (0.5 * this.gMLV.size) + this.gCLV.size
-        val pointSum = this.points.map(p => p.dimensions(i)).sum
-        val gMLVSum = this.gMLV.map(m => m.dimensions(i)).sum
-        val gCLVSum = this.gCLV.map(c => c.dimensions(i)).sum
-        val average = (pointSum + (0.5 * gMLVSum) + gCLVSum) / nj
-        newDimensions(i) = average
+      this.centroid.dimensions.indices.foreach {
+        i => {
+          val nj :Double = this.points.size + (0.5 * this.gMLV.size) + this.gCLV.size
+          val pointSum = this.points.map(p => p.dimensions(i)).sum
+          val gMLVSum = this.gMLV.map(m => m.dimensions(i)).sum
+          val gCLVSum = this.gCLV.map(c => c.dimensions(i)).sum
+          val average = (pointSum + (0.5 * gMLVSum) + gCLVSum) / nj
+          newDimensions(i) = NumberUtil.round(average)
+        }
+
       }
-    }
-    this.centroid = this.centroid.copy(dimensions = newDimensions)
+      this.centroid = this.centroid.copy(dimensions = newDimensions)
 
-    ! (oldCentroid.dimensions.deep == newDimensions.deep)
+      (oldCentroid.dimensions.deep != newDimensions.deep)
+    } else {
+      true
+    }
   }
 
   /**

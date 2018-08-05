@@ -7,22 +7,24 @@ object MustLinkRule {
 
   def apply(constraint: Constraint)(implicit distanceCalculator: DistanceCalculator): Unit ={
 
-    val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
-    val a = calculateMLA(commonDistance)
-    val b = calculateMLB(commonDistance)
-    val c = calculateMLC(commonDistance)
+    if(constraint.pointA.cluster != constraint.pointB.cluster) {
+      val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
+      val a = calculateMLA(commonDistance)
+      val b = calculateMLB(commonDistance)
+      val c = calculateMLC(commonDistance)
 
-    val min = math.min(a, math.min(b, c))
-    min match {
-      case `a` =>
-        constraint.pointA.cluster.get.addGMLV(constraint.pointB)
-        constraint.pointB.cluster.get.addGMLV(constraint.pointA)
-      case `b` =>
-        ClusterUtil.removeFromCluster(constraint.pointB)
-        ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
-      case `c` =>
-        ClusterUtil.removeFromCluster(constraint.pointA)
-        ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+      val min = math.min(a, math.min(b, c))
+      min match {
+        case `a` =>
+          constraint.pointA.cluster.get.addGMLV(constraint.pointB)
+          constraint.pointB.cluster.get.addGMLV(constraint.pointA)
+        case `b` =>
+          ClusterUtil.removeFromCluster(constraint.pointB)
+          ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
+        case `c` =>
+          ClusterUtil.removeFromCluster(constraint.pointA)
+          ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+      }
     }
   }
 
