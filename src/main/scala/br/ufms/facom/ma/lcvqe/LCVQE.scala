@@ -4,6 +4,7 @@ import br.ufms.facom.ma.lcvqe.error.LCVQEError
 import br.ufms.facom.ma.lcvqe.rule.{CannotLinkRule, MustLinkRule}
 import br.ufms.facom.ma.lcvqe.util.{KmeansUtil, Sequence}
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 
@@ -50,7 +51,6 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     Result(Some(data), Some(clusterHistory.toList))
 
   }
-
 
   /**
     * Apply the main core of the LCQVE Algorithm
@@ -193,5 +193,17 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     val cannotLinkPoints = this.constraints.get.filter(const => const.consType == ConstraintType.CannotLink && (const.pointA == point || const.pointB == point))
 
     ! cluster.points.exists(cannotLinkPoints.contains)
+  }
+
+
+  def level(cluster: Cluster): Int ={
+    @tailrec
+    def levelTail(cluster: Cluster, level: Int): Int ={
+      cluster.father match {
+        case None => level
+        case Some(father) => levelTail(father, level + 1)
+      }
+    }
+    levelTail(cluster, 0)
   }
 }

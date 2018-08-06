@@ -41,7 +41,7 @@ object Point {
 
   def random(id: String, max: Array[Double], min: Array[Double]): Point = {
     val dim: Int = max.length-1
-    val coords: Array[Double] = (0 to dim).map((i) => min(i) + ((max(i) - min(i)) * NumberUtil.round(scala.util.Random.nextDouble))).toArray
+    val coords: Array[Double] = (0 to dim).map((i) => NumberUtil.round(min(i) + ((max(i) - min(i)) * scala.util.Random.nextDouble))).toArray
     Point(id, coords)
   }
 }
