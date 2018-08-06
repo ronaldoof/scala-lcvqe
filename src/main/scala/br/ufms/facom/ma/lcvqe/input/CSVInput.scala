@@ -1,7 +1,7 @@
 package br.ufms.facom.ma.lcvqe.input
 
 
-import br.ufms.facom.ma.lcvqe.{Constraint, ConstraintType, Point}
+import br.ufms.facom.ma.lcvqe.{Constraint, ConstraintType, GeoTag, Point}
 import com.github.tototoshi.csv.{CSVReader, DefaultCSVFormat}
 
 import scala.reflect.io.File
@@ -35,5 +35,17 @@ object CSVInput {
     }.toList
     reader.close()
     constraints
+  }
+
+  def readGeotag(path: String, data: List[Point]): List[GeoTag] = {
+    val reader = CSVReader.open(path)
+    val geoTags = reader.toStream.tail.map { item =>
+      val point: Point = data.find(p => p.id.equals(item(0))).get
+      val lat = item(1).toDouble
+      val long = item(2).toDouble
+      GeoTag(point, lat, long)
+    }.toList
+    reader.close()
+    geoTags
   }
 }

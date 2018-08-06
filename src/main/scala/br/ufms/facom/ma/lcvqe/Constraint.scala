@@ -16,3 +16,14 @@ case class Constraint (val pointA: Point, val pointB: Point,
   }
 
 }
+
+object Constraint {
+  private val threshold = 1000 // In kilometers
+
+  def buildCannotLink(data: List[Point], geoTags: List[GeoTag], level: Int): List[Constraint] = {
+    require(level > 0)
+    geoTags.filter(g => data.contains(g.point)).combinations(2).filter(geoTags => geoTags(0).distanceTo(geoTags(1)) >= (threshold/level)).map{
+      geoTags => Constraint(geoTags(0).point, geoTags(1).point, ConstraintType.CannotLink)
+    }.toList
+  }
+}
