@@ -18,4 +18,13 @@ class ClusterTest extends FlatSpec with Matchers{
 
   }
 
+  "A cluster" should "return his current level in a cluster hierachy" in {
+    val a = Cluster(id = "a", centroid = Point.random("c-a", Array(1.0,1.0), Array(10.0,10.0)), father = None)
+    val b = Cluster(id = "b", centroid = Point.random("c-b", Array(1.0,1.0), Array(10.0,10.0)), father = Some(a))
+    val c = Cluster(id = "c", centroid = Point.random("c-c", Array(1.0,1.0), Array(10.0,10.0)), father = Some(b))
+
+    val level = c.level()
+
+    level shouldBe 3
+  }
 }

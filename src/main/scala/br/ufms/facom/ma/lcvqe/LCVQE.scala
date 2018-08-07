@@ -1,17 +1,15 @@
 package br.ufms.facom.ma.lcvqe
 
-import br.ufms.facom.ma.lcvqe.error.LCVQEError
 import br.ufms.facom.ma.lcvqe.rule.{CannotLinkRule, MustLinkRule}
 import br.ufms.facom.ma.lcvqe.util.{KmeansUtil, Sequence}
-
-import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 
 /**
   * Class that implements the LCVQE Algorithm.
   */
-case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: Int, iterations: Int)(implicit distanceCalculator: DistanceCalculator = Cosine) {
+case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoTags: Option[List[GeoTag]], k: Int,
+                  iterations: Int)(implicit distanceCalculator: DistanceCalculator = Cosine) {
 
 
   def run(): Result = {
@@ -40,7 +38,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
         val actClusters = initHClusters(actData, actCluster)
 
         // runs LCVQE on the data set with K=2 until convergence
-        (0 until iterations).takeWhile(_ => applyLCVQE(actClusters, actData))
+        (0 until iterations).takeWhile(_ => applyLCVQE(actClusters, actData, this.geoTags.getOrElse(Nil)))
 
         // add new cluster to history and stack
         stack ++=actClusters
@@ -52,6 +50,76 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
 
   }
 
+
+//  def process(stack: List[Cluster]): List[Cluster] ={
+//    @tailrec
+//    def processTail(stack: List[Cluster], clusterHistory: List[Cluster]): List[Cluster] = {
+//      // remove o topo da pilha
+//      val actCluster = stack.head
+//
+//      if(actCluster.points.size > 1 && actCluster.quadraticError > 0) {
+//        // the data set is composed by the points inside the cluster in the top of the stack
+//        val actData = actCluster.points.toList
+//        // init the clusters for this level
+//        val actClusters = initHClusters(actData, actCluster)
+//
+//        // runs LCVQE on the data set with K=2 until convergence
+//        (0 until iterations).takeWhile(_ => applyLCVQE(actClusters, actData))
+//
+//        val newStack = stack.tail ::: actClusters
+//         processTail(newStack, clusterHistory ::: actClusters)
+//      } else {
+//        clusterHistory
+//      }
+//    }
+//    processTail(stack, Nil)
+//  }
+
+//  def processFoldLeft(stack: List[Cluster]): List[Cluster] ={
+//
+//    stack.foldLeft(List.empty[Cluster]){case (acc, element) =>{
+//      // remove o topo da pilha
+//      val actCluster = stack.head
+//
+//      if(actCluster.points.size > 1 && actCluster.quadraticError > 0) {
+//        // the data set is composed by the points inside the cluster in the top of the stack
+//        val actData = actCluster.points.toList
+//        // init the clusters for this level
+//        val actClusters = initHClusters(actData, actCluster)
+//
+//        // runs LCVQE on the data set with K=2 until convergence
+//        (0 until iterations).takeWhile(_ => applyLCVQE(actClusters, actData))
+//
+//        val newStack = stack.tail ::: actClusters
+//        acc ::: actClusters
+//      } else {
+//        acc
+//      }
+//    }
+//
+//    @tailrec
+//    def processTail(stack: List[Cluster], clusterHistory: List[Cluster]): List[Cluster] = {
+//      // remove o topo da pilha
+//      val actCluster = stack.head
+//
+//      if(actCluster.points.size > 1 && actCluster.quadraticError > 0) {
+//        // the data set is composed by the points inside the cluster in the top of the stack
+//        val actData = actCluster.points.toList
+//        // init the clusters for this level
+//        val actClusters = initHClusters(actData, actCluster)
+//
+//        // runs LCVQE on the data set with K=2 until convergence
+//        (0 until iterations).takeWhile(_ => applyLCVQE(actClusters, actData))
+//
+//        val newStack = stack.tail ::: actClusters
+//        processTail(newStack, clusterHistory ::: actClusters)
+//      } else {
+//        clusterHistory
+//      }
+//    }
+//    processTail(stack, Nil)
+//  }
+
   /**
     * Apply the main core of the LCQVE Algorithm
     * @param actClusters the current cluster to be taken in considerations
@@ -59,15 +127,15 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     * @return true if some cluster changed position and false if no cluster changed position. The latest
     *         means conversion of the algorithm
     */
-  def applyLCVQE (actClusters: List[Cluster], data: List[Point]): Boolean = {
+  def applyLCVQE (actClusters: List[Cluster], data: List[Point], geoTags: List[GeoTag]): Boolean = {
     //      clean the clusters
     actClusters.foreach(c => c.clear())
 
     // there is a special case where two points may be so close they won't allow convergence on the algorithm
     // to overcome that we focefuly assing each point to one cluster
     if(data.size == 2) {
-      data(0).assingCluster(actClusters(0))
-      data(1).assingCluster(actClusters(1))
+      data.head.assingCluster(actClusters.head)
+      data.tail.head.assingCluster(actClusters.tail.head)
       false
     } else {
       // assing each point to the nearest cluster
@@ -79,11 +147,13 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
       if (constraints.nonEmpty) {
         // apply LCVQE must link and cannot link rules
         val (mustLinkConstraints, cannotLinkConstraints) = actConstraints.partition(_.consType == ConstraintType.MustLink)
-
+        val geoCannotLink = Constraint.buildCannotLink(data, geoTags, actClusters.head.level())
+        val allCannotLinkConstraints = geoCannotLink ::: cannotLinkConstraints
         mustLinkConstraints.foreach(constraint => {
           MustLinkRule(constraint)
         })
-        cannotLinkConstraints.foreach(constraint => {
+
+        allCannotLinkConstraints.foreach(constraint => {
           CannotLinkRule(constraint, actClusters)
         })
       }
@@ -195,15 +265,4 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], k: I
     ! cluster.points.exists(cannotLinkPoints.contains)
   }
 
-
-  def level(cluster: Cluster): Int ={
-    @tailrec
-    def levelTail(cluster: Cluster, level: Int): Int ={
-      cluster.father match {
-        case None => level
-        case Some(father) => levelTail(father, level + 1)
-      }
-    }
-    levelTail(cluster, 0)
-  }
 }
