@@ -2,6 +2,7 @@ package br.ufms.facom.ma.lcvqe
 
 import br.ufms.facom.ma.lcvqe.util.NumberUtil
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 case class Cluster (id: String, var centroid: Point,
@@ -51,6 +52,17 @@ case class Cluster (id: String, var centroid: Point,
     } else {
       true
     }
+  }
+
+  def level(): Int ={
+    @tailrec
+    def levelTail(cluster: Cluster, level: Int): Int ={
+      cluster.father match {
+        case None => level
+        case Some(father) => levelTail(father, level + 1)
+      }
+    }
+    levelTail(this, 1)
   }
 
   /**
