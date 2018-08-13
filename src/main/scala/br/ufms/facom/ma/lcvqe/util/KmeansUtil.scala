@@ -21,12 +21,12 @@ object KmeansUtil {
   def max(data: List[Point]): Array[Double] = {
     val dim = data(0).dimensions.length
 
-    (0 until dim).map(maxVal(data, _)).toArray
+    (0 until dim).par.map(maxVal(data, _)).toArray
   }
 
   def min(data: List[Point]): Array[Double] = {
     val dim = data(0).dimensions.length
 
-    (0 until dim).map(minVal(data, _)).toArray
+    (0 until dim).par.map(minVal(data, _)).toArray
   }
 }
