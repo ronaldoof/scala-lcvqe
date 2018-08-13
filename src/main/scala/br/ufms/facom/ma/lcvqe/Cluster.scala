@@ -31,7 +31,7 @@ case class Cluster (id: String, var centroid: Point,
     * a change on the cluster position
     */
   def reposition: Boolean = {
-    if(this.points.size > 0) {
+    if(this.points.nonEmpty) {
       val oldCentroid = this.centroid.copy()
       val newDimensions = new Array[Double](this.centroid.dimensions.length)
 
@@ -42,7 +42,14 @@ case class Cluster (id: String, var centroid: Point,
           val gMLVSum = this.gMLV.map(m => m.dimensions(i)).sum
           val gCLVSum = this.gCLV.map(c => c.dimensions(i)).sum
           val average = (pointSum + (0.5 * gMLVSum) + gCLVSum) / nj
-          newDimensions(i) = NumberUtil.round(average)
+          if(average.isNaN) {
+            printf("Values NJ [%f]; PointSum [%f]; GMLVSum [%f]; GCLVSum [%f]; Average [%f]",nj, pointSum, gMLVSum, gCLVSum, average)
+          }
+          if(average.isNaN){
+            true
+          } else {
+            newDimensions(i) = NumberUtil.round(average)
+          }
         }
 
       }

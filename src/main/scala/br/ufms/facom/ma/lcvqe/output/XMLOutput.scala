@@ -4,7 +4,7 @@ import br.ufms.facom.ma.lcvqe.Result
 
 object XMLOutput {
 
-  def exportResult(result: Result): String = {
+  def exportResult(result: Result, metadata: List[String]): String = {
     val xml = <tree>
       {result.clusters.getOrElse(List.empty).map { c =>
         <node>
@@ -18,11 +18,16 @@ object XMLOutput {
           <documents>
           {c.points.map(_.id).mkString("[", ",", "]")}
           </documents>
-          <descriptors>{c.centroid.dimensions.mkString(",")}</descriptors>
+          <descriptors>{findDescriptors(c.centroid.dimensions, metadata).mkString(",")}</descriptors>
         </node>
       }}
     </tree>
     xml.toString()
   }
 
+  private def findDescriptors(dimensions: Array[Double], metadata: List[String]): Array[String] ={
+    dimensions.zipWithIndex.collect{
+      case (value, i) if value != 0.0 => metadata(i)
+    }
+  }
 }

@@ -18,21 +18,28 @@ object CSVInput {
       Point(item.head, item.tail.map(_.toDouble).toArray)
     }.toList
     reader.close()
-    data
+    data.distinct
+  }
+
+  def readMetadata(path: String): List[String] = {
+    val reader = CSVReader.open(path)(MyFormat)
+    val data = reader.toStream.head
+    reader.close()
+    data.distinct
   }
 
   def readConstraint(path: String, data: List[Point]): List[Constraint] = {
     val reader = CSVReader.open(path)
-    val constraints = reader.toStream.tail.map { item =>
-      val pointA: Point = data.find(p => p.id.equals(item(0))).get
-      val pointB = data.find(p => p.id.equals(item(1))).get
-      val constraintType = if (item(2) == "1") {
-        ConstraintType.MustLink
-      } else {
-        ConstraintType.CannotLink
-      }
-      Constraint(pointA, pointB, constraintType)
-    }.toList
+    val constraints = reader.all().filter(item => data.exists(p => p.id == item(0)) && data.exists(p => p.id == item(1))).map { item =>
+        val pointA: Point = data.find(p => p.id.equals(item(0))).get
+        val pointB = data.find(p => p.id.equals(item(1))).get
+        val constraintType = if (item(2) == "1") {
+          ConstraintType.MustLink
+        } else {
+          ConstraintType.CannotLink
+        }
+        Constraint(pointA, pointB, constraintType)
+    }
     reader.close()
     constraints
   }
@@ -43,8 +50,12 @@ object CSVInput {
       val point: Point = data.find(p => p.id.equals(item(0))).get
       val lat = item(1).toDouble
       val long = item(2).toDouble
-      GeoTag(point, lat, long)
-    }.toList
+      if(point != None){
+        Option(GeoTag(point, lat, long))
+      } else {
+        None
+      }
+    }.filterNot(_ == None).map(_.get).toList
     reader.close()
     geoTags
   }

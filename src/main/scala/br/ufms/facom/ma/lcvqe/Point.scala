@@ -11,7 +11,7 @@ case class Point (val id: String, val dimensions: Array[Double], var cluster: Op
   def clearCluster: Unit = {this.cluster = None}
 
   def assignClosest(clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator = Cosine): Unit = {
-    this.cluster = Option(clusters.sortWith((a, b) => this.distanceTo(a.centroid) < this.distanceTo(b.centroid)).head)
+    this.cluster = Some(clusters.map(c => (c, this.distanceTo(c.centroid))).toMap.toSeq.sortBy(_._2).head._1)
     this.cluster.map(_.addPoint(point = this))
   }
 
