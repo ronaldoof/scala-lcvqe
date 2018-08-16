@@ -17,11 +17,10 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
   def run(): Result = {
 
     printf("Starting HLCVQE Algorithm...\n")
+//    val geoMap = Constraint.buildGeoMap(data, geoTags.get)
     val seq = Sequence
     val root = Cluster(seq.next(), Point("root_point", Array(0,0)))
-    printf("==> Starting clusters\n")
     val clusters = initClusters(data, root)
-    printf("==> Clusters started, total of [%d] clusters\n",clusters.size)
     val clusterHistory =  ListBuffer(root)
     val stack = ListBuffer.empty[Cluster]
 
@@ -39,18 +38,21 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       val actCluster = stack.remove(0)
       // the data set is composed by the points inside the cluster in the top of the stack
       val actData = actCluster.points.toList
-      printf("===> Level [%d]\n",actCluster.level())
-      printf("===> Data Size [%d]\n", actData.size)
 
       if(actData.size > 1) {
         // init the clusters for this level
         val actClusters = initHClusters(actData, actCluster)
         val actConstraints: List[Constraint] = filterConstraints(actData)
+        val filteredGeoTags = {
+          val actDataS = data.map(_.id).toSet
+          geoTags.getOrElse(Nil).filter(g => actDataS.contains(g.point.id))
+        }
 
+        val geoCannotLink = Constraint.buildCannotLink(filteredGeoTags, actCluster.level())
         // runs LCVQE on the data set with K=2 until convergence
         (0 until iterations).takeWhile(_ => {
           printf("========> Runing LCVQE on the Level\n")
-          applyLCVQE(actClusters, actData, this.geoTags.getOrElse(Nil),actConstraints)
+          applyLCVQE(actClusters, actData, geoCannotLink ,actConstraints)
         })
 
         // add new cluster to history and stack
@@ -71,7 +73,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * @return true if some cluster changed position and false if no cluster changed position. The latest
     *         means conversion of the algorithm
     */
-  def applyLCVQE (actClusters: List[Cluster], points: List[Point], geoTags: List[GeoTag], actConstraints: List[Constraint]): Boolean = {
+  def applyLCVQE (actClusters: List[Cluster], points: List[Point], cannotLinkConstraint: List[Constraint], mustLinkConstraints: List[Constraint]): Boolean = {
     //      clean the clusters
     actClusters.foreach(c => c.clear())
 
@@ -90,7 +92,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       assignPointsToClosestCluster(points, actClusters)
 
       if (constraints.nonEmpty) {
-        applyLCVQEConstrants(actClusters, points, geoTags, actConstraints)
+        applyLCVQEConstrants(actClusters, points, cannotLinkConstraint, mustLinkConstraints)
       }
 
       printRationClusterPoint(actClusters)
@@ -110,31 +112,30 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
   }
 
   def filterConstraints(actData: List[Point]): List[Constraint] = {
-    printf("Start Filtering... \n")
-    val time = System.currentTimeMillis()
     // get the constraints that only refers to the points being analyzed
+    val time = System.currentTimeMillis()
     val aConstraints = Future {
-      constraints.getOrElse(List.empty[Constraint]).par.filter(cons => actData.map(_.id).contains(cons.pointA.id))
+      val actDataC = actData.map(c => c.id).toSet
+      constraints.getOrElse(Nil).filter(c => actDataC.contains(c.pointA.id))
     }
     val bConstraints = Future {
-      (constraints.getOrElse(List.empty[Constraint])).par.filter(cons => actData.map(_.id).contains(cons.pointB.id))
+      val time = System.currentTimeMillis()
+      val actDataC = actData.map(c => c.id).toSet
+      constraints.getOrElse(Nil).filter(c => actDataC.contains(c.pointB.id))
     }
     val result = Await.result(Future.sequence(List(aConstraints, bConstraints)), Duration.Inf).flatMap(_.distinct)
-    printf("Filtering took [%d] milliseconds \n",System.currentTimeMillis() - time)
     result
   }
 
-  private def applyLCVQEConstrants(actClusters: List[Cluster], points: List[Point], geoTags: List[GeoTag], actConstraints: List[Constraint]) = {
+  private def applyLCVQEConstrants(actClusters: List[Cluster], points: List[Point],
+                                   cannotLinkConstraints: List[Constraint], mustLinkConstraints: List[Constraint]) = {
     // apply LCVQE must link and cannot link rules
-    val (mustLinkConstraints, cannotLinkConstraints) = actConstraints.partition(_.consType == ConstraintType.MustLink)
-    val geoCannotLink = Constraint.buildCannotLink(points, geoTags, actClusters.head.level())
-    val allCannotLinkConstraints = geoCannotLink ::: cannotLinkConstraints
     val mustLinkFutures = mustLinkConstraints.map(constraint => Future {
       MustLinkRule(constraint)
     })
 
     val cannotLinkFutures =
-    allCannotLinkConstraints.map(constraint => Future {
+      cannotLinkConstraints.map(constraint => Future {
       CannotLinkRule(constraint, actClusters)
     })
     Await.ready(Future.sequence(mustLinkFutures ::: cannotLinkFutures), Duration.Inf)
@@ -214,23 +215,32 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * @param clusters the cluster that the root level will be built uppon
     */
   def buildRootLevel(clusters: List[Cluster]): Unit ={
+    val geoCannotLink = Constraint.buildCannotLink(this.geoTags.getOrElse(Nil), clusters.head.level())
+
     (0 until this.iterations).takeWhile {
       _ =>
+        val time1 = System.currentTimeMillis()
         // clean the clusters
         clusters.foreach(_.clear())
+        val time2 = System.currentTimeMillis()
 
         assignPointsToClosestCluster(data, clusters)
 
+        val time3 = System.currentTimeMillis()
         // aplica regra de Must Link e Cannot Link do LCVQE
         constraints match {
           case Some(const) =>
-            applyLCVQEConstrants(clusters, data, this.geoTags.getOrElse(Nil), const)
+            applyLCVQEConstrants(clusters, data, geoCannotLink, const)
 
           case None =>
         }
 
+        val time4 = System.currentTimeMillis()
         //      reposiciona os clusters
-        clusters.filter(c => c.points.nonEmpty).map(c => c.reposition).reduceLeft(_ || _)
+        val repo = clusters.filter(c => c.points.nonEmpty).map(c => c.reposition).reduceLeft(_ || _)
+        val time5 = System.currentTimeMillis()
+        printf("Times 1-2 [%d] :: 2-3 [%d] :: 3-4 [%d] :: 4-5 [%d]\n", time2-time1, time3-time2, time4-time3, time5-time4)
+        repo
     }
   }
 

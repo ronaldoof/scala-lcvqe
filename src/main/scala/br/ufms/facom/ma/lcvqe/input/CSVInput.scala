@@ -12,13 +12,20 @@ object CSVInput {
     override val delimiter = ';'
   }
 
-  def readData(path: String): List[Point] = {
+  def readData(path: String, filter: Option[String] = None): List[Point] = {
     val reader = CSVReader.open(path)(MyFormat)
-    val data = reader.toStream.tail.map { item =>
+    val data = reader.toStream.tail.filter(_.nonEmpty).map { item =>
       Point(item.head, item.tail.map(_.toDouble).toArray)
     }.toList
     reader.close()
-    data.distinct
+    filter match {
+      case Some(f) => {
+        val filters = CSVReader.open(f).all().toSet
+        val filteredData = data.filter(d => filters.map(_(0)).contains(d.id))
+        filteredData
+      }
+      case None => data.distinct
+    }
   }
 
   def readMetadata(path: String): List[String] = {
@@ -33,7 +40,8 @@ object CSVInput {
     val constraints = reader.all().filter(item => data.exists(p => p.id == item(0)) && data.exists(p => p.id == item(1))).map { item =>
         val pointA: Point = data.find(p => p.id.equals(item(0))).get
         val pointB = data.find(p => p.id.equals(item(1))).get
-        val constraintType = if (item(2) == "1") {
+
+        val constraintType = if (item.size < 3 ||  item(2) == "1") {
           ConstraintType.MustLink
         } else {
           ConstraintType.CannotLink
@@ -46,16 +54,12 @@ object CSVInput {
 
   def readGeotag(path: String, data: List[Point]): List[GeoTag] = {
     val reader = CSVReader.open(path)
-    val geoTags = reader.toStream.tail.map { item =>
-      val point: Point = data.find(p => p.id.equals(item(0))).get
+    val geoTags = reader.toStream.tail.collect { case item if (data.map(_.id).contains(item(0))) =>
+      val point = data.find(p => p.id.equals(item(0)))
       val lat = item(1).toDouble
       val long = item(2).toDouble
-      if(point != None){
-        Option(GeoTag(point, lat, long))
-      } else {
-        None
-      }
-    }.filterNot(_ == None).map(_.get).toList
+      GeoTag(point.get, lat, long)
+    }.toList
     reader.close()
     geoTags
   }

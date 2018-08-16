@@ -27,7 +27,7 @@ object XMLOutput {
 
   private def findDescriptors(dimensions: Array[Double], metadata: List[String]): Array[String] ={
     dimensions.zipWithIndex.collect{
-      case (value, i) if value != 0.0 => metadata(i)
+      case (value, i) if value != 0.0 && i < metadata.size => metadata(i)
     }
   }
 }

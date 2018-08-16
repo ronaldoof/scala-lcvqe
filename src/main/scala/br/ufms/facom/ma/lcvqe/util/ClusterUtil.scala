@@ -15,7 +15,11 @@ object ClusterUtil {
   def removeFromCluster(point: Point): Unit = {
     point.cluster match {
       case Some(cluster) =>
-        cluster.points -= point
+        val index = cluster.points.toSet.zipWithIndex.find(p => p._1.id == point.id).map(p => p._2)
+        index match {
+          case Some(i) => cluster.points.remove(i)
+          case _ =>
+        }
         point.cluster = None
       case None =>
     }
