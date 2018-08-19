@@ -1,31 +1,51 @@
 package br.ufms.facom.ma.lcvqe.rule
 
-import br.ufms.facom.ma.lcvqe.util.ClusterUtil
+import br.ufms.facom.ma.lcvqe.util.{ClusterUtil, ReportUtil}
 import br.ufms.facom.ma.lcvqe.{Constraint, DistanceCalculator}
 
 object MustLinkRule {
 
   def apply(constraint: Constraint)(implicit distanceCalculator: DistanceCalculator): Unit ={
+    val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
+    val a = calculateMLA(commonDistance)
+    val b = calculateMLB(commonDistance)
+    val c = calculateMLC(commonDistance)
 
-    if(constraint.pointA.cluster != constraint.pointB.cluster) {
-      assume(constraint.pointA.cluster != None)
-      assume(constraint.pointB.cluster != None)
-      val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
-      val a = calculateMLA(commonDistance)
-      val b = calculateMLB(commonDistance)
-      val c = calculateMLC(commonDistance)
+    val min = math.min(a, math.min(b, c))
+    min match {
+      case `a` =>
+        applyRuleA(constraint, b, c)
+      case `b` =>
+        applyRuleB(constraint)
+      case `c` =>
+        applyRuleC(constraint)
+    }
+  }
 
-      val min = math.min(a, math.min(b, c))
-      min match {
-        case `a` =>
-          constraint.pointA.cluster.get.addGMLV(constraint.pointB)
-          constraint.pointB.cluster.get.addGMLV(constraint.pointA)
-        case `b` =>
-          ClusterUtil.removeFromCluster(constraint.pointB)
-          ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
-        case `c` =>
-          ClusterUtil.removeFromCluster(constraint.pointA)
-          ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+
+  private def applyRuleC(constraint: Constraint) = {
+    if (constraint.pointA.cluster.size > 1) {
+      ClusterUtil.removeFromCluster(constraint.pointA)
+      ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+    }
+  }
+
+  private def applyRuleB(constraint: Constraint) = {
+    if (constraint.pointB.cluster.size > 1) {
+      ClusterUtil.removeFromCluster(constraint.pointB)
+      ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
+    }
+  }
+
+  private def applyRuleA(constraint: Constraint, b: Double, c: Double) = {
+    if (constraint.pointA.id.split(".").head != constraint.pointB.id.split(".").head) {
+      constraint.pointA.cluster.get.addGMLV(constraint.pointB)
+      constraint.pointB.cluster.get.addGMLV(constraint.pointA)
+    } else {
+      if (b < c) {
+        applyRuleB(constraint)
+      } else {
+        applyRuleC(constraint)
       }
     }
   }

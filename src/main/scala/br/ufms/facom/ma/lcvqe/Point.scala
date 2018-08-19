@@ -4,6 +4,8 @@ import br.ufms.facom.ma.lcvqe.util.NumberUtil
 
 case class Point (val id: String, val dimensions: Array[Double], var cluster: Option[Cluster] = None) {
 
+  var secondCluster: Option[Cluster] = None
+
   def getDimension(dimension: Int): Double = dimensions(dimension)
 
   def distanceTo(pointB: Point)(implicit calculator: DistanceCalculator = Cosine): Double = calculator.calculateDistance(this, pointB)
@@ -11,7 +13,9 @@ case class Point (val id: String, val dimensions: Array[Double], var cluster: Op
   def clearCluster: Unit = {this.cluster = None}
 
   def assignClosest(clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator = Cosine): Unit = {
-    this.cluster = Some(clusters.map(c => (c, this.distanceTo(c.centroid))).toMap.toSeq.sortBy(_._2).head._1)
+    val closeClusters = clusters.map(c => (c, this.distanceTo(c.centroid))).toMap.toSeq.sortBy(_._2)
+    this.cluster = Some(closeClusters.head._1)
+    this.secondCluster = Some(closeClusters.tail.head._1)
     this.cluster.map(_.addPoint(point = this))
   }
 

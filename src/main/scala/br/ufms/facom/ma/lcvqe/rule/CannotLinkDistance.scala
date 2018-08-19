@@ -1,6 +1,9 @@
 package br.ufms.facom.ma.lcvqe.rule
 
 import br.ufms.facom.ma.lcvqe.{Cluster, Constraint, DistanceCalculator, Point}
+import br.ufms.facom.ma.cache.Cache.mMCache
+import scalacache.{get, put}
+import scalacache.modes.sync._
 
 case class CannotLinkDistance(distA: Double, distB: Double)
 
@@ -47,8 +50,17 @@ object CannotLinkDistance {
   }
 
   def mM(clusters: List[Cluster], cluster: Cluster, point: Point)(implicit distanceCalculator: DistanceCalculator): Cluster = {
-    clusters.withFilter(_ != cluster).map(x => x)
-      .minBy(c => distanceCalculator.calculateDistance(c.centroid, point))
+    val closeCluster = point.secondCluster.getOrElse {
+      val closeClosters = clusters.map(c => (c, point.distanceTo(c.centroid))).toMap.toSeq.sortBy(_._2).map(_._1)
+      val tmp = if(closeClosters.head == cluster){
+        closeClosters.tail.head
+      } else {
+        closeClosters.head
+      }
+      point.secondCluster = Some(tmp)
+      tmp
+    }
+    closeCluster
   }
 
 }

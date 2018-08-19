@@ -32,3 +32,8 @@ assembly
 all {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/products {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/test:products
 compile
 all {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/products {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/test:products
+;reload; set _root_.org.jetbrains.sbt.StructureKeys.sbtStructureOptions in Global := "download" ;*/*:dumpStructureTo /private/var/folders/gp/qw5lqyt95bs69cvk7zng2ncn8c3t63/T/sbt-structure1.xml; session clear-all
+;reload; set _root_.org.jetbrains.sbt.StructureKeys.sbtStructureOptions in Global := "download" ;*/*:dumpStructureTo /private/var/folders/gp/qw5lqyt95bs69cvk7zng2ncn8c3t63/T/sbt-structure.xml; session clear-all
+all {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/products {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/test:products
+;reload; set _root_.org.jetbrains.sbt.StructureKeys.sbtStructureOptions in Global := "download" ;*/*:dumpStructureTo /private/var/folders/gp/qw5lqyt95bs69cvk7zng2ncn8c3t63/T/sbt-structure.xml; session clear-all
+all {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/products {file:/Users/rflorence/git/scala-lcvqe/}scala-lcvqe/test:products

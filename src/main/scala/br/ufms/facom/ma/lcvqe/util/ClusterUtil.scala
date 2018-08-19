@@ -8,22 +8,12 @@ object ClusterUtil {
     point.cluster = cluster
     cluster match {
       case Some(cl) => cl.addPoint(point)
-      case None =>
+      case None => printf("POINT WITHOUT CLUSTER!! THIS WILL CAUSE A FLOATING POINT PROBLEM")
     }
   }
 
   def removeFromCluster(point: Point): Unit = {
-    point.cluster match {
-      case Some(cluster) =>
-        val index = cluster.points.toSet.zipWithIndex.find(p => p._1.id == point.id).map(p => p._2)
-        index match {
-          case Some(i) => cluster.points.remove(i)
-          case _ =>
-        }
-        point.cluster = None
-      case None =>
-    }
-
+    point.cluster.get.points -= point
   }
 
 }
