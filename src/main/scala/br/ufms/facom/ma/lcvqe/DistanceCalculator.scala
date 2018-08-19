@@ -1,6 +1,10 @@
 package br.ufms.facom.ma.lcvqe
 
 import br.ufms.facom.ma.lcvqe.util.NumberUtil
+import br.ufms.facom.ma.cache.Cache.distanceCache
+import scalacache.{get, put}
+import scalacache.modes.sync._
+
 
 trait DistanceCalculator {
 
@@ -8,12 +12,22 @@ trait DistanceCalculator {
 
 }
 
+
 object Euclidean extends DistanceCalculator{
 
   def calculateDistance(pointA: Point, pointB: Point): Double = {
-    NumberUtil.round((pointA.dimensions, pointB.dimensions).zipped.map((a, b) => scala.math.pow(b - a, 2)).sum)
+    get(pointA.id + pointB.id).getOrElse {
+      calculateWithoutCache(pointA, pointB)
+    }
   }
 
+  private def calculateWithoutCache(pointA: Point, pointB: Point): Double = {
+    var dist: Double = 0.0
+    (0 until pointA.dimensions.size).foreach { i =>
+      dist = dist + scala.math.pow(pointB.dimensions(i) - pointA.dimensions(i), 2)
+    }
+    dist
+  }
 }
 
 object Cosine extends DistanceCalculator{

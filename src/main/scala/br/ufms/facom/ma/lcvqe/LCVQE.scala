@@ -1,23 +1,26 @@
 package br.ufms.facom.ma.lcvqe
 
 import br.ufms.facom.ma.lcvqe.rule.{CannotLinkRule, MustLinkRule}
-import br.ufms.facom.ma.lcvqe.util.{KmeansUtil, NumberUtil, Sequence}
-
+import br.ufms.facom.ma.lcvqe.util.{KmeansUtil, NumberUtil, ReportUtil, Sequence}
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
+import br.ufms.facom.ma.cache.Cache.mMCache
+import scalacache._
+import scalacache.modes.sync.mode
+
 /**
   * Class that implements the LCVQE Algorithm.
   */
-case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoTags: Option[List[GeoTag]], k: Int,
+case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoTags: Option[Set[GeoTag]], k: Int,
                   iterations: Int)(implicit distanceCalculator: DistanceCalculator = Cosine) {
 
+  private val errorThreshold = 5.0
 
   def run(): Result = {
 
     printf("Starting HLCVQE Algorithm...\n")
-//    val geoMap = Constraint.buildGeoMap(data, geoTags.get)
+    ReportUtil.countIt("Data")(data)
+
+
     val seq = Sequence
     val root = Cluster(seq.next(), Point("root_point", Array(0,0)))
     val clusters = initClusters(data, root)
@@ -40,62 +43,77 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       val actData = actCluster.points.toList
 
       if(actData.size > 1) {
-        // init the clusters for this level
-        val actClusters = initHClusters(actData, actCluster)
-        val actConstraints: List[Constraint] = filterConstraints(actData)
-        val filteredGeoTags = {
-          val actDataS = data.map(_.id).toSet
-          geoTags.getOrElse(Nil).filter(g => actDataS.contains(g.point.id))
-        }
-
-        val geoCannotLink = Constraint.buildCannotLink(filteredGeoTags, actCluster.level())
-        // runs LCVQE on the data set with K=2 until convergence
-        (0 until iterations).takeWhile(_ => {
-          printf("========> Runing LCVQE on the Level\n")
-          applyLCVQE(actClusters, actData, geoCannotLink ,actConstraints)
-        })
-
-        // add new cluster to history and stack
-        stack ++=actClusters.filter(c => c.points.size > 1)
-        clusterHistory ++=actClusters
+        core(clusterHistory, stack, actCluster, actData)
       }
     }
-
     Result(Some(data), Some(clusterHistory.toList))
-
   }
+
+
+  private def core(clusterHistory: ListBuffer[Cluster], stack: ListBuffer[Cluster], actCluster: Cluster, actData: List[Point]) = {
+    // init the clusters for this level
+    val actClusters = initHClusters(actData, actCluster)
+    val filteredConstraints: List[Constraint] = filterConstraints(actData)
+    val filteredGeoTags = {
+      val actDataS = data.map(_.id).toSet
+      geoTags.getOrElse(Nil).filter(g => actDataS.contains(g.point.id))
+    }.toSet
+
+    val geoCannotLink = ReportUtil.timeIt("BuildGeoConstraints")(
+      Constraint.buildCannotLink(filteredGeoTags, actCluster.level())
+    )
+    ReportUtil.countIt("MustLinkConstraints")(filteredConstraints)
+    ReportUtil.countIt("CannotLinkConstraints")(geoCannotLink)
+
+    // runs LCVQE on the data set with K=2 until convergence
+    (0 until iterations).takeWhile(_ => {
+      ReportUtil.timeIt("ApplyLCVQE")(
+        applyLCVQE(actClusters, actData, geoCannotLink, filteredConstraints)
+      )
+    })
+    ReportUtil.reportError(actClusters)
+
+    // add new cluster to history and stack
+    stack ++= actClusters.filter(c => c.points.size > 1)
+    clusterHistory ++= actClusters
+  }
+
 
 
   /**
     * Apply the main core of the LCQVE Algorithm
+ *
     * @param actClusters the current cluster to be taken in considerations
     * @param data the current dataSet to be taken in consideration
     * @return true if some cluster changed position and false if no cluster changed position. The latest
     *         means conversion of the algorithm
     */
   def applyLCVQE (actClusters: List[Cluster], points: List[Point], cannotLinkConstraint: List[Constraint], mustLinkConstraints: List[Constraint]): Boolean = {
+
     //      clean the clusters
     actClusters.foreach(c => c.clear())
 
     // there is a special case where two points may be so close they won't allow convergence on the algorithm
     // to overcome that we focefuly assing each point to one cluster
     if(points.size == 2) {
-      printRationClusterPoint(actClusters)
+      printf("===========> Only two points to divide.\n")
+      ReportUtil.printRatioClusterPoint(actClusters)
       points.head.assingCluster(actClusters.head)
       points.tail.head.assingCluster(actClusters.tail.head)
-      actClusters.head.reposition
-      actClusters.tail.head.reposition
-      printRationClusterPoint(actClusters)
+      actClusters.head.centroid = points.head
+      actClusters.tail.head.centroid = points.tail.head
+      ReportUtil.printRatioClusterPoint(actClusters)
       false
     } else {
       // assing each point to the nearest cluster
       assignPointsToClosestCluster(points, actClusters)
-
+      ReportUtil.printPointBalance(actClusters, points)
       if (constraints.nonEmpty) {
-        applyLCVQEConstrants(actClusters, points, cannotLinkConstraint, mustLinkConstraints)
+        applyLCVQEConstraints(actClusters, cannotLinkConstraint, mustLinkConstraints)
       }
 
-      printRationClusterPoint(actClusters)
+      ReportUtil.printRatioClusterPoint(actClusters)
+      ReportUtil.printPointBalance(actClusters, points)
       val finalClusters = actClusters.filter(c => c.points.nonEmpty)
 
       if(finalClusters.nonEmpty) {
@@ -107,38 +125,29 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     }
   }
 
-  private def printRationClusterPoint(actClusters: List[Cluster]) = {
-    actClusters.foreach(c => printf("Cluster [%s] has [%d] points\n", c.id, c.points.size))
-  }
-
   def filterConstraints(actData: List[Point]): List[Constraint] = {
-    // get the constraints that only refers to the points being analyzed
-    val time = System.currentTimeMillis()
-    val aConstraints = Future {
       val actDataC = actData.map(c => c.id).toSet
-      constraints.getOrElse(Nil).filter(c => actDataC.contains(c.pointA.id))
+      constraints.getOrElse(Nil).filter(c => actDataC.contains(c.pointA.id) && actDataC.contains(c.pointB.id))
     }
-    val bConstraints = Future {
-      val time = System.currentTimeMillis()
-      val actDataC = actData.map(c => c.id).toSet
-      constraints.getOrElse(Nil).filter(c => actDataC.contains(c.pointB.id))
-    }
-    val result = Await.result(Future.sequence(List(aConstraints, bConstraints)), Duration.Inf).flatMap(_.distinct)
-    result
-  }
 
-  private def applyLCVQEConstrants(actClusters: List[Cluster], points: List[Point],
-                                   cannotLinkConstraints: List[Constraint], mustLinkConstraints: List[Constraint]) = {
-    // apply LCVQE must link and cannot link rules
-    val mustLinkFutures = mustLinkConstraints.map(constraint => Future {
-      MustLinkRule(constraint)
-    })
+  /**
+    * Apply LCVE ML and CL rules
+    * @param actClusters Cluster where the rules will apply
+    * @param points Data set
+    * @param cannotLinkConstraints List of CL constraints to apply
+    * @param mustLinkConstraints List of ML constraints to apply
+    */
+  private def applyLCVQEConstraints(actClusters: List[Cluster], cannotLinkConstraints: List[Constraint],
+                                    mustLinkConstraints: List[Constraint]): Unit = {
+    ReportUtil.timeIt("ApplyMustLinkConstraint")(
+      mustLinkConstraints.foreach(constraint => MustLinkRule(constraint))
+    )
 
-    val cannotLinkFutures =
-      cannotLinkConstraints.map(constraint => Future {
-      CannotLinkRule(constraint, actClusters)
-    })
-    Await.ready(Future.sequence(mustLinkFutures ::: cannotLinkFutures), Duration.Inf)
+    ReportUtil.timeIt("ApplyCannotLinkConstraint")(
+      cannotLinkConstraints.foreach(constraint =>
+        CannotLinkRule(constraint, actClusters)
+      )
+    )
   }
 
   /**
@@ -171,8 +180,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     */
   def initClusters(points: List[Point], root: Cluster): List[Cluster] = {
     val seq = Sequence
-    printf("About to initialize clusters based on [%d] ML Constraints", this.constraints.get.size)
-    this.constraints.get.filter(_.consType == ConstraintType.MustLink).map {
+    printf("About to initialize clusters based on [%d] ML Constraints\n", this.constraints.get.size)
+   val clusters = this.constraints.get.filter(_.consType == ConstraintType.MustLink).map {
       c => c.pointA.cluster match {
         case None =>
           c.pointB.cluster match {
@@ -192,6 +201,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
           }
       }
     }.distinct
+    ReportUtil.printPointBalance(clusters, data)
+    clusters
   }
 
   /**
@@ -215,46 +226,50 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * @param clusters the cluster that the root level will be built uppon
     */
   def buildRootLevel(clusters: List[Cluster]): Unit ={
-    val geoCannotLink = Constraint.buildCannotLink(this.geoTags.getOrElse(Nil), clusters.head.level())
+    val geoCannotLink = Constraint.buildCannotLink(this.geoTags.getOrElse(Nil).toSet, clusters.head.level())
+    ReportUtil.countIt("GeoCannotLink")(geoCannotLink)
 
     (0 until this.iterations).takeWhile {
       _ =>
-        val time1 = System.currentTimeMillis()
         // clean the clusters
-        clusters.foreach(_.clear())
-        val time2 = System.currentTimeMillis()
-
-        assignPointsToClosestCluster(data, clusters)
-
-        val time3 = System.currentTimeMillis()
+        ReportUtil.timeIt("Clear Cluster")(
+          clusters.foreach(_.clear())
+        )
+        ReportUtil.timeIt("Assign Closest Cluster")(
+          assignPointsToClosestCluster(data, clusters)
+        )
         // aplica regra de Must Link e Cannot Link do LCVQE
-        constraints match {
-          case Some(const) =>
-            applyLCVQEConstrants(clusters, data, geoCannotLink, const)
+        ReportUtil.timeIt("ApplyLCVQEConstraints")(
+            constraints match {
+              case Some(const) =>
+                applyLCVQEConstraints(clusters, geoCannotLink, const)
 
-          case None =>
-        }
-
-        val time4 = System.currentTimeMillis()
+              case None => printf("NO CONSTRAINTS FOUND!\n")
+            }
+          )
         //      reposiciona os clusters
-        val repo = clusters.filter(c => c.points.nonEmpty).map(c => c.reposition).reduceLeft(_ || _)
-        val time5 = System.currentTimeMillis()
-        printf("Times 1-2 [%d] :: 2-3 [%d] :: 3-4 [%d] :: 4-5 [%d]\n", time2-time1, time3-time2, time4-time3, time5-time4)
+        val repo = ReportUtil.timeIt("RepositionClusters")(
+          clusters.filter(c => c.points.nonEmpty).map(c => c.reposition).reduceLeft(_ || _)
+        )
+        ReportUtil.printPointBalance(clusters, this.data)
         repo
     }
   }
 
+  def printIfNoPoint(cluster: Cluster): Unit ={
+    if(cluster.points.isEmpty){
+      printf("=========> The Cluster [%s] is empty\n", cluster.id)
+    }
+  }
+
   def assignPointsToClosestCluster(points: List[Point], clusters: List[Cluster]): Unit ={
-    // find the closest cluster for every point. We use future here to paralelize the task
-    Await.ready(Future.sequence(points.map(p => {
-      Future {
-        p.assignClosest(clusters)(distanceCalculator)
-      }
-    })), Duration.Inf)
+    // find the closest cluster for every point
+    points.foreach(p => p.assignClosest(clusters)(distanceCalculator))
   }
 
   def canAddToCluster(point: Point, cluster: Cluster): Boolean = {
-    val cannotLinkPoints = this.constraints.get.filter(const => const.consType == ConstraintType.CannotLink && (const.pointA == point || const.pointB == point))
+    val cannotLinkPoints = this.constraints.get.filter(const => const.consType ==
+      ConstraintType.CannotLink && (const.pointA == point || const.pointB == point))
 
     ! cluster.points.exists(cannotLinkPoints.contains)
   }

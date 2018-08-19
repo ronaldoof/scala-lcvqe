@@ -3,7 +3,7 @@ package br.ufms.facom.ma.lcvqe.rule
 import br.ufms.facom.ma.lcvqe.util.ClusterUtil
 import br.ufms.facom.ma.lcvqe.{Cluster, Constraint, DistanceCalculator, Point}
 
-object CannotLinkRule {
+object CannotLinkRule  {
 
   /**
     * Apply the Cannot Link logic after the points had been assigned to your closest cluster.
@@ -22,24 +22,13 @@ object CannotLinkRule {
       val min = math.min(a, math.min(b, c))
       min match {
         case `a` =>
-          val rj: Point = CannotLinkDistance.calculateR(constraint, constraint.pointA.cluster.get)
-          val mMj = CannotLinkDistance.mM(clusters, constraint.pointA.cluster.get, rj)
-
-          mMj.addGCLV(constraint.pointA)
-          ClusterUtil.removeFromCluster(constraint.pointB)
-          ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
+          applyRuleA(constraint, clusters)
 
         case `b` =>
-          val rn: Point = CannotLinkDistance.calculateR(constraint, constraint.pointB.cluster.get)
-          val mMn = CannotLinkDistance.mM(clusters, constraint.pointB.cluster.get, rn)
-
-          mMn.addGCLV(constraint.pointB)
-          ClusterUtil.removeFromCluster(constraint.pointA)
-          ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+          applyRuleB(constraint, clusters)
 
         case `c` =>
-          constraint.pointA.cluster.get.addGCLV(constraint.pointA)
-          constraint.pointB.cluster.get.addGCLV(constraint.pointB)
+          applyRuleC(constraint, clusters, a, b)
 
         case _ => {
           printf(s"commonDistance = ${commonDistance} \n")
@@ -50,6 +39,37 @@ object CannotLinkRule {
     }
   }
 
+
+  private def applyRuleC(constraint: Constraint, clusters: List[Cluster], a: Double, b: Double)(implicit distanceCalculator: DistanceCalculator) = {
+    if (constraint.pointA.id.split(".").head != constraint.pointB.id.split(".").head) {
+      constraint.pointA.cluster.get.addGCLV(constraint.pointA)
+      constraint.pointB.cluster.get.addGCLV(constraint.pointB)
+    } else {
+      if (a < b) {
+        applyRuleA(constraint, clusters)
+      } else {
+        applyRuleB(constraint, clusters)
+      }
+    }
+  }
+
+  private def applyRuleB(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator) = {
+    val rn: Point = CannotLinkDistance.calculateR(constraint, constraint.pointB.cluster.get)
+    val mMn = CannotLinkDistance.mM(clusters, constraint.pointB.cluster.get, rn)
+
+    mMn.addGCLV(constraint.pointB)
+    ClusterUtil.removeFromCluster(constraint.pointA)
+    ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+  }
+
+  private def applyRuleA(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator) = {
+    val rj: Point = CannotLinkDistance.calculateR(constraint, constraint.pointA.cluster.get)
+    val mMj = CannotLinkDistance.mM(clusters, constraint.pointA.cluster.get, rj)
+
+    mMj.addGCLV(constraint.pointA)
+    ClusterUtil.removeFromCluster(constraint.pointB)
+    ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
+  }
 
   private def calculateCLA(commonDistance: CommonDistance, rtoCMMDistance: CannotLinkDistance) : Double = {
     (0.5 * commonDistance.distA) +  (0.5 * commonDistance.distD) + (0.5 * rtoCMMDistance.distA)
