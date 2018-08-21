@@ -6,20 +6,22 @@ import br.ufms.facom.ma.lcvqe.{Constraint, DistanceCalculator}
 object MustLinkRule {
 
   def apply(constraint: Constraint)(implicit distanceCalculator: DistanceCalculator): Unit ={
-    val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
-    val a = calculateMLA(commonDistance)
-    val b = calculateMLB(commonDistance)
-    val c = calculateMLC(commonDistance)
+    if(constraint.pointA.cluster.isDefined && constraint.pointB.cluster.isDefined && constraint.pointA.cluster != constraint.pointB.cluster) {
+      val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
+      val a = calculateMLA(commonDistance)
+      val b = calculateMLB(commonDistance)
+      val c = calculateMLC(commonDistance)
 
-    val min = math.min(a, math.min(b, c))
-    min match {
-      case `a` =>
-        applyRuleA(constraint, b, c)
-      case `b` =>
-        applyRuleB(constraint)
-      case `c` =>
-        applyRuleC(constraint)
-    }
+      val min = math.min(a, math.min(b, c))
+      min match {
+        case `a` =>
+          applyRuleA(constraint, b, c)
+        case `b` =>
+          applyRuleB(constraint)
+        case `c` =>
+          applyRuleC(constraint)
+      }
+     }
   }
 
 
@@ -38,7 +40,7 @@ object MustLinkRule {
   }
 
   private def applyRuleA(constraint: Constraint, b: Double, c: Double) = {
-    if (constraint.pointA.id.split(".").head != constraint.pointB.id.split(".").head) {
+    if (constraint.pointA.id.split("\\.").head != constraint.pointB.id.split("\\.").head) {
       constraint.pointA.cluster.get.addGMLV(constraint.pointB)
       constraint.pointB.cluster.get.addGMLV(constraint.pointA)
     } else {

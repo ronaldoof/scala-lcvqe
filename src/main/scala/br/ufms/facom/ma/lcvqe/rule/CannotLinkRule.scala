@@ -41,7 +41,7 @@ object CannotLinkRule  {
 
 
   private def applyRuleC(constraint: Constraint, clusters: List[Cluster], a: Double, b: Double)(implicit distanceCalculator: DistanceCalculator) = {
-    if (constraint.pointA.id.split(".").head != constraint.pointB.id.split(".").head) {
+    if (constraint.pointA.id.split("\\.").head != constraint.pointB.id.split("\\.").head) {
       constraint.pointA.cluster.get.addGCLV(constraint.pointA)
       constraint.pointB.cluster.get.addGCLV(constraint.pointB)
     } else {

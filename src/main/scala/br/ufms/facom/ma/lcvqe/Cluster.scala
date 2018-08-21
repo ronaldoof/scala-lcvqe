@@ -91,4 +91,16 @@ case class Cluster (id: String, var centroid: Point,
   def quadraticError(implicit distanceCalculator: DistanceCalculator): Double = {
     points.map(p => distanceCalculator.calculateDistance(p, centroid)).sum
   }
+
+  override def canEqual(a: Any): Boolean = a.isInstanceOf[Cluster]
+
+  override def equals(that: Any): Boolean = that match {
+    case that: Cluster => that.canEqual(this) && that.id == this.id
+    case _ => false
+  }
+
+  override def hashCode: Int = {
+    this.id.##
+  }
+
 }
