@@ -2,8 +2,10 @@ package br.ufms.facom.ma.lcvqe
 
 import br.ufms.facom.ma.lcvqe.rule.{CannotLinkRule, MustLinkRule}
 import br.ufms.facom.ma.lcvqe.util.{KmeansUtil, NumberUtil, ReportUtil, Sequence}
+
 import scala.collection.mutable.ListBuffer
 import br.ufms.facom.ma.cache.Cache.mMCache
+import br.ufms.facom.ma.lcvqe.error.LCVQEError
 import scalacache._
 import scalacache.modes.sync.mode
 
@@ -16,7 +18,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
   private val errorThreshold = 5.0
 
   def run(): Result = {
-
+    val begin = System.currentTimeMillis()
     printf("Starting HLCVQE Algorithm...\n")
     ReportUtil.countIt("Data")(data)
 
@@ -46,6 +48,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
         core(clusterHistory, stack, actCluster, actData)
       }
     }
+    printf("=========> Took [%d] seconds to run everything.", (System.currentTimeMillis() - begin)/1000)
     Result(Some(data), Some(clusterHistory.toList))
   }
 
@@ -55,7 +58,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     val actClusters = initHClusters(actData, actCluster)
     val filteredConstraints: List[Constraint] = filterConstraints(actData)
     val filteredGeoTags = {
-      val actDataS = data.map(_.id).toSet
+      val actDataS = actData.map(_.id).toSet
       geoTags.getOrElse(Nil).filter(g => actDataS.contains(g.point.id))
     }.toSet
 
@@ -71,14 +74,26 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
         applyLCVQE(actClusters, actData, geoCannotLink, filteredConstraints)
       )
     })
-    ReportUtil.reportError(actClusters)
-
     // add new cluster to history and stack
-    stack ++= actClusters.filter(c => c.points.size > 1)
+
     clusterHistory ++= actClusters
+    ReportUtil.reportError(actClusters)
+    val error = actClusters.par.map(c => LCVQEError.calcError(actClusters, c)).sum
+    if(error <= 0.001 && actClusters.filter(_.points.isEmpty).nonEmpty){
+      val leafs = buildLeafs(actData, actClusters.filterNot(_.points.isEmpty).head)
+      clusterHistory ++= leafs
+    } else {
+      stack ++= actClusters.filter(c => c.points.size > 1)
+    }
   }
 
 
+  private def buildLeafs(points: List[Point], cluster: Cluster): List[Cluster] = {
+    points.map { p =>
+      val id = Sequence.next()
+      Cluster(id.toString, p.copy(id = id), father = Some(cluster))
+    }
+  }
 
   /**
     * Apply the main core of the LCQVE Algorithm
@@ -211,12 +226,11 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * @return a list of initial clusters
     */
   def initHClusters(points: List[Point], father: Cluster): List[Cluster] = {
-    (0 until 2).map( _ => {
-      val id = Sequence.next()
-      val pointIndex = scala.util.Random.nextInt(points.size - 1)
-      val centroid = points(pointIndex).copy(id = id)
-      Cluster(id, centroid, father = Some(father))
-    }).toList
+    val idOne = Sequence.next()
+    val idTwo = Sequence.next()
+    val firstCentroid = points.head.copy(id = idOne)
+    val secondCentroid = points.last.copy(id = idTwo)
+    List(Cluster(idOne, firstCentroid, father = Some(father)), Cluster(idTwo, secondCentroid, father = Some(father)))
   }
 
 

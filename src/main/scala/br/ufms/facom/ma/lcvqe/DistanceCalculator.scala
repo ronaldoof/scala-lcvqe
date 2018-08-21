@@ -23,7 +23,7 @@ object Euclidean extends DistanceCalculator{
 
   private def calculateWithoutCache(pointA: Point, pointB: Point): Double = {
     var dist: Double = 0.0
-    (0 until pointA.dimensions.size).foreach { i =>
+    (0 until pointA.dimensions.length).foreach { i =>
       dist = dist + scala.math.pow(pointB.dimensions(i) - pointA.dimensions(i), 2)
     }
     dist

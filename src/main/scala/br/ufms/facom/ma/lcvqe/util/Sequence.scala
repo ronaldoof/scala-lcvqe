@@ -8,6 +8,7 @@ object Sequence {
 
   private var seed = 0
 
+  def current(): Int = seed
   def next(): String = {
     seed = seed + 1
     seed.toString
