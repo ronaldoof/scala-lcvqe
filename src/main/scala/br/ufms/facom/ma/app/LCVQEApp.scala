@@ -4,6 +4,7 @@ import java.io.{File, PrintWriter}
 
 import br.ufms.facom.ma.lcvqe.input.CSVInput
 import br.ufms.facom.ma.lcvqe.output.XMLOutput
+import br.ufms.facom.ma.lcvqe.output.CSVOutput
 import br.ufms.facom.ma.lcvqe.{Constraint, Euclidean, LCVQE}
 
 import scala.collection.mutable.ListBuffer
@@ -34,9 +35,17 @@ object LCVQEApp {
       if(!outFile.exists()) {
         outFile.createNewFile()
       }
+
+      val constraintFile = new File(args(7))
+      if(!constraintFile.exists()) {
+        constraintFile.createNewFile()
+      }
+
       val pw = new PrintWriter(new File(args(6)))
       pw.write(xml)
       pw.close()
+
+      CSVOutput.exportConstraint(constraintFile, brokenConstraints.toList)
     }
   }
 
