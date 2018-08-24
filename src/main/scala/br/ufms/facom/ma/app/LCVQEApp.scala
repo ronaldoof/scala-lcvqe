@@ -4,7 +4,9 @@ import java.io.{File, PrintWriter}
 
 import br.ufms.facom.ma.lcvqe.input.CSVInput
 import br.ufms.facom.ma.lcvqe.output.XMLOutput
-import br.ufms.facom.ma.lcvqe.{Euclidean, LCVQE}
+import br.ufms.facom.ma.lcvqe.{Constraint, Euclidean, LCVQE}
+
+import scala.collection.mutable.ListBuffer
 
 object LCVQEApp {
 
@@ -24,9 +26,14 @@ object LCVQEApp {
       val metadata = CSVInput.readMetadata(args(0))
       val constraints = CSVInput.readConstraint(args(2), data)
       val geoTags = CSVInput.readGeotag(args(3), data)
-      val lCVQE = LCVQE(data, Some(constraints), Some(geoTags), args(4).toInt, args(5).toInt)(Euclidean)
+      val brokenConstraints = ListBuffer.empty[Constraint]
+      val lCVQE = LCVQE(data, Some(constraints), Some(geoTags), args(4).toInt, args(5).toInt, brokenConstraints)(Euclidean)
       val result = lCVQE.run()
       val xml = XMLOutput.exportResult(result, metadata)
+      val outFile = new File(args(6))
+      if(!outFile.exists()) {
+        outFile.createNewFile()
+      }
       val pw = new PrintWriter(new File(args(6)))
       pw.write(xml)
       pw.close()

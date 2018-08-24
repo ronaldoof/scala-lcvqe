@@ -3,9 +3,11 @@ package br.ufms.facom.ma.lcvqe.rule
 import br.ufms.facom.ma.lcvqe.util.{ClusterUtil, ReportUtil}
 import br.ufms.facom.ma.lcvqe.{Constraint, DistanceCalculator}
 
+import scala.collection.mutable.ListBuffer
+
 object MustLinkRule {
 
-  def apply(constraint: Constraint)(implicit distanceCalculator: DistanceCalculator): Unit ={
+  def apply(constraint: Constraint, brokenConstraints: ListBuffer[Constraint])(implicit distanceCalculator: DistanceCalculator): Unit ={
     if(constraint.pointA.cluster.isDefined && constraint.pointB.cluster.isDefined && constraint.pointA.cluster != constraint.pointB.cluster) {
       val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
       val a = calculateMLA(commonDistance)
@@ -15,7 +17,7 @@ object MustLinkRule {
       val min = math.min(a, math.min(b, c))
       min match {
         case `a` =>
-          applyRuleA(constraint, b, c)
+          applyRuleA(constraint, b, c, brokenConstraints)
         case `b` =>
           applyRuleB(constraint)
         case `c` =>
@@ -39,10 +41,11 @@ object MustLinkRule {
     }
   }
 
-  private def applyRuleA(constraint: Constraint, b: Double, c: Double) = {
+  private def applyRuleA(constraint: Constraint, b: Double, c: Double, brokenContraints: ListBuffer[Constraint]) = {
     if (constraint.pointA.id.split("\\.").head != constraint.pointB.id.split("\\.").head) {
       constraint.pointA.cluster.get.addGMLV(constraint.pointB)
       constraint.pointB.cluster.get.addGMLV(constraint.pointA)
+      brokenContraints += constraint
     } else {
       if (b < c) {
         applyRuleB(constraint)

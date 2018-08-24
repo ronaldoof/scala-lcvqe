@@ -13,7 +13,7 @@ import scalacache.modes.sync.mode
   * Class that implements the LCVQE Algorithm.
   */
 case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoTags: Option[Set[GeoTag]], k: Int,
-                  iterations: Int)(implicit distanceCalculator: DistanceCalculator = Cosine) {
+                  iterations: Int, brokenConstraints: ListBuffer[Constraint])(implicit distanceCalculator: DistanceCalculator = Cosine) {
 
   private val errorThreshold = 5.0
 
@@ -21,7 +21,6 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     val begin = System.currentTimeMillis()
     printf("Starting HLCVQE Algorithm...\n")
     ReportUtil.countIt("Data")(data)
-
 
     val seq = Sequence
     val root = Cluster(seq.next(), Point("root_point", Array(0,0)))
@@ -35,7 +34,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     })
 
     printf("==> Building root level\n")
-    buildRootLevel(clusters)
+    buildRootLevel(clusters, brokenConstraints)
     printf("==> Root level built\n")
 
     while(stack.nonEmpty) {
@@ -45,7 +44,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       val actData = actCluster.points.toList
 
       if(actData.size > 1) {
-        core(clusterHistory, stack, actCluster, actData)
+        core(clusterHistory, stack, actCluster, actData, brokenConstraints)
       }
     }
     printf("=========> Took [%d] seconds to run everything.", (System.currentTimeMillis() - begin)/1000)
@@ -53,7 +52,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
   }
 
 
-  private def core(clusterHistory: ListBuffer[Cluster], stack: ListBuffer[Cluster], actCluster: Cluster, actData: List[Point]) = {
+  private def core(clusterHistory: ListBuffer[Cluster], stack: ListBuffer[Cluster],
+                   actCluster: Cluster, actData: List[Point], brokenConstraints: ListBuffer[Constraint]) = {
     // init the clusters for this level
     val actClusters = initHClusters(actData, actCluster)
     val filteredConstraints: List[Constraint] = filterConstraints(actData)
@@ -71,7 +71,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     // runs LCVQE on the data set with K=2 until convergence
     (0 until iterations).takeWhile(_ => {
       ReportUtil.timeIt("ApplyLCVQE")(
-        applyLCVQE(actClusters, actData, geoCannotLink, filteredConstraints)
+        applyLCVQE(actClusters, actData, geoCannotLink, filteredConstraints, brokenConstraints)
       )
     })
     // add new cluster to history and stack
@@ -103,7 +103,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * @return true if some cluster changed position and false if no cluster changed position. The latest
     *         means conversion of the algorithm
     */
-  def applyLCVQE (actClusters: List[Cluster], points: List[Point], cannotLinkConstraint: List[Constraint], mustLinkConstraints: List[Constraint]): Boolean = {
+  def applyLCVQE (actClusters: List[Cluster], points: List[Point], cannotLinkConstraint: List[Constraint],
+                  mustLinkConstraints: List[Constraint], brokenConstraints: ListBuffer[Constraint]): Boolean = {
 
     //      clean the clusters
     actClusters.foreach(c => c.clear())
@@ -124,7 +125,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       assignPointsToClosestCluster(points, actClusters)
       ReportUtil.printPointBalance(actClusters, points)
       if (constraints.nonEmpty) {
-        applyLCVQEConstraints(actClusters, cannotLinkConstraint, mustLinkConstraints)
+        applyLCVQEConstraints(actClusters, cannotLinkConstraint, mustLinkConstraints, brokenConstraints)
       }
 
       ReportUtil.printRatioClusterPoint(actClusters)
@@ -153,14 +154,14 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * @param mustLinkConstraints List of ML constraints to apply
     */
   private def applyLCVQEConstraints(actClusters: List[Cluster], cannotLinkConstraints: List[Constraint],
-                                    mustLinkConstraints: List[Constraint]): Unit = {
+                                    mustLinkConstraints: List[Constraint], brokenConstraints: ListBuffer[Constraint]): Unit = {
     ReportUtil.timeIt("ApplyMustLinkConstraint")(
-      mustLinkConstraints.foreach(constraint => MustLinkRule(constraint))
+      mustLinkConstraints.foreach(constraint => MustLinkRule(constraint, brokenConstraints))
     )
 
     ReportUtil.timeIt("ApplyCannotLinkConstraint")(
       cannotLinkConstraints.foreach(constraint =>
-        CannotLinkRule(constraint, actClusters)
+        CannotLinkRule(constraint, actClusters, brokenConstraints)
       )
     )
   }
@@ -239,7 +240,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * e queremos apenas aperfeicoar o agrupamento usando LCVQE
     * @param clusters the cluster that the root level will be built uppon
     */
-  def buildRootLevel(clusters: List[Cluster]): Unit ={
+  def buildRootLevel(clusters: List[Cluster], brokenConstraints: ListBuffer[Constraint]): Unit ={
     val geoCannotLink = Constraint.buildCannotLink(this.geoTags.getOrElse(Nil).toSet, clusters.head.level())
     ReportUtil.countIt("GeoCannotLink")(geoCannotLink)
 
@@ -256,7 +257,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
         ReportUtil.timeIt("ApplyLCVQEConstraints")(
             constraints match {
               case Some(const) =>
-                applyLCVQEConstraints(clusters, geoCannotLink, const)
+                applyLCVQEConstraints(clusters, geoCannotLink, const, brokenConstraints)
 
               case None => printf("NO CONSTRAINTS FOUND!\n")
             }

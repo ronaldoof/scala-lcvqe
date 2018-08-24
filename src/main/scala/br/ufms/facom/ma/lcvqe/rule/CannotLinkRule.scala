@@ -3,6 +3,8 @@ package br.ufms.facom.ma.lcvqe.rule
 import br.ufms.facom.ma.lcvqe.util.ClusterUtil
 import br.ufms.facom.ma.lcvqe.{Cluster, Constraint, DistanceCalculator, Point}
 
+import scala.collection.mutable.ListBuffer
+
 object CannotLinkRule  {
 
   /**
@@ -11,10 +13,12 @@ object CannotLinkRule  {
     * @param clusters list of clusters that will be analyzed by the rule
     * @param distanceCalculator strategy on how to calculate distance
     */
-  def apply(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator): Unit ={
+  def apply(constraint: Constraint, clusters: List[Cluster], brokenConstraints: ListBuffer[Constraint])
+           (implicit distanceCalculator: DistanceCalculator): Unit ={
     if(constraint.pointA.cluster == constraint.pointB.cluster) {
       val commonDistance = CommonDistance(constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
-      val rtoCMMDistances = CannotLinkDistance.calculateRtoCMMDistances(clusters, constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
+      val rtoCMMDistances = CannotLinkDistance.calculateRtoCMMDistances(clusters,
+        constraint, constraint.pointA.cluster.get, constraint.pointB.cluster.get)
       val a = calculateCLA(commonDistance, rtoCMMDistances)
       val b = calculateCLB(commonDistance, rtoCMMDistances)
       val c = calculateCLC(commonDistance)
@@ -28,7 +32,7 @@ object CannotLinkRule  {
           applyRuleB(constraint, clusters)
 
         case `c` =>
-          applyRuleC(constraint, clusters, a, b)
+          applyRuleC(constraint, clusters, a, b, brokenConstraints)
 
         case _ => {
           printf(s"commonDistance = ${commonDistance} \n")
@@ -40,10 +44,12 @@ object CannotLinkRule  {
   }
 
 
-  private def applyRuleC(constraint: Constraint, clusters: List[Cluster], a: Double, b: Double)(implicit distanceCalculator: DistanceCalculator) = {
+  private def applyRuleC(constraint: Constraint, clusters: List[Cluster], a: Double,
+                         b: Double, brokenConstraints: ListBuffer[Constraint])(implicit distanceCalculator: DistanceCalculator) = {
     if (constraint.pointA.id.split("\\.").head != constraint.pointB.id.split("\\.").head) {
       constraint.pointA.cluster.get.addGCLV(constraint.pointA)
       constraint.pointB.cluster.get.addGCLV(constraint.pointB)
+      brokenConstraints += constraint
     } else {
       if (a < b) {
         applyRuleA(constraint, clusters)
