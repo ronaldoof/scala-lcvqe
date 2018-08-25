@@ -54,11 +54,16 @@ object CSVInput {
 
   def readGeotag(path: String, data: List[Point]): Set[GeoTag] = {
     val reader = CSVReader.open(path)
-    val geoTags = reader.toStream.tail.collect { case item if (data.map(_.id).contains(item(0))) =>
-      val point = data.find(p => p.id.equals(item(0)))
-      val lat = item(1).toDouble
-      val long = item(2).toDouble
-      GeoTag(point.get, lat, long)
+    val geoTags = reader.toStream.tail.collect { case item if (data.map(_.id).contains(item(0)) && item(0).nonEmpty && item(1).nonEmpty && item(2).nonEmpty) =>
+      try{
+        val point = data.find(p => p.id.equals(item(0)))
+        val lat = item(1).toDouble
+        val long = item(2).toDouble
+        GeoTag(point.get, lat, long)
+      } catch {
+        case e: Throwable => printf("Error in geo tag %s; $s; %s", item(0), item(1), item(2))
+          throw e
+      }
     }.toSet
     reader.close()
     geoTags

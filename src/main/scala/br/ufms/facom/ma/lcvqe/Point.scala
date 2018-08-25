@@ -27,7 +27,7 @@ case class Point (val id: String, val dimensions: Array[Double], var cluster: Op
   override def canEqual(a: Any): Boolean = a.isInstanceOf[Point]
 
   override def equals(that: Any): Boolean = that match {
-      case that: Point => that.canEqual(this) && that.dimensions.deep.equals(this.dimensions.deep)
+      case that: Point => that.canEqual(this) && that.id == this.id
       case _ => false
   }
 

@@ -17,7 +17,10 @@ object Euclidean extends DistanceCalculator{
 
   def calculateDistance(pointA: Point, pointB: Point): Double = {
     get(pointA.id + pointB.id).getOrElse {
-      calculateWithoutCache(pointA, pointB)
+      val newDist = calculateWithoutCache(pointA, pointB)
+      val key = pointA.id + pointB.id
+      put(key)(newDist)
+      newDist
     }
   }
 

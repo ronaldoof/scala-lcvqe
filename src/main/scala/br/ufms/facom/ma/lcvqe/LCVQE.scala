@@ -4,10 +4,10 @@ import br.ufms.facom.ma.lcvqe.rule.{CannotLinkRule, MustLinkRule}
 import br.ufms.facom.ma.lcvqe.util.{KmeansUtil, NumberUtil, ReportUtil, Sequence}
 
 import scala.collection.mutable.ListBuffer
-import br.ufms.facom.ma.cache.Cache.mMCache
+import br.ufms.facom.ma.cache.Cache.distanceCache
 import br.ufms.facom.ma.lcvqe.error.LCVQEError
 import scalacache._
-import scalacache.modes.sync.mode
+import scalacache.modes.sync._
 
 /**
   * Class that implements the LCVQE Algorithm.
@@ -266,6 +266,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
         val repo = ReportUtil.timeIt("RepositionClusters")(
           clusters.filter(c => c.points.nonEmpty).map(c => c.reposition).reduceLeft(_ || _)
         )
+        removeAll[Double]
+
         ReportUtil.printPointBalance(clusters, this.data)
         repo
     }
