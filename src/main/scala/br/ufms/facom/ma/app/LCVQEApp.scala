@@ -5,7 +5,7 @@ import java.io.{File, PrintWriter}
 import br.ufms.facom.ma.lcvqe.input.CSVInput
 import br.ufms.facom.ma.lcvqe.output.XMLOutput
 import br.ufms.facom.ma.lcvqe.output.CSVOutput
-import br.ufms.facom.ma.lcvqe.{Constraint, Euclidean, LCVQE}
+import br.ufms.facom.ma.lcvqe.{Constraint, Cosine, Euclidean, LCVQE}
 
 import scala.collection.mutable.ListBuffer
 

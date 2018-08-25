@@ -3,7 +3,7 @@ package br.ufms.facom.ma.lcvqe.util
 import br.ufms.facom.ma.lcvqe.error.LCVQEError
 import br.ufms.facom.ma.lcvqe.{Cluster, DistanceCalculator, Euclidean, Point}
 
-import scala.collection.AbstractSeq
+import scala.collection.{AbstractIterable, AbstractSeq}
 object ReportUtil {
 
   def printPointBalance(clusters: List[Cluster], data: List[Point]): Unit = {
@@ -24,13 +24,13 @@ object ReportUtil {
     result
   }
 
-  def countIt[A](tag: String)(c: AbstractSeq[A]): Unit = {
+  def countIt[A](tag: String)(c: AbstractIterable[A]): Unit = {
     val count = c.size
     printf("The size of [%s] is [%d]\n", tag, count)
   }
 
   def reportError(clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator): Unit = {
-    clusters.par.foreach(c => printf("Cluster [%s] has error [%f]", c.id, LCVQEError.calcError(clusters, c)))
+    clusters.par.foreach(c => printf("Cluster [%s] has error [%f]\n", c.id, LCVQEError.calcError(clusters, c)))
   }
 
 }

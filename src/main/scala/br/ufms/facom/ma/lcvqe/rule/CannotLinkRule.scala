@@ -60,21 +60,25 @@ object CannotLinkRule  {
   }
 
   private def applyRuleB(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator) = {
-    val rn: Point = CannotLinkDistance.calculateR(constraint, constraint.pointB.cluster.get)
-    val mMn = CannotLinkDistance.mM(clusters, constraint.pointB.cluster.get, rn)
+    if(constraint.pointA.cluster.get.points.size > 1) {
+      val rn: Point = CannotLinkDistance.calculateR(constraint, constraint.pointB.cluster.get)
+      val mMn = CannotLinkDistance.mM(clusters, constraint.pointB.cluster.get, rn)
 
-    mMn.addGCLV(constraint.pointB)
-    ClusterUtil.removeFromCluster(constraint.pointA)
-    ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+      mMn.addGCLV(constraint.pointB)
+      ClusterUtil.removeFromCluster(constraint.pointA)
+      ClusterUtil.addToCluster(constraint.pointA, constraint.pointB.cluster)
+    }
   }
 
   private def applyRuleA(constraint: Constraint, clusters: List[Cluster])(implicit distanceCalculator: DistanceCalculator) = {
-    val rj: Point = CannotLinkDistance.calculateR(constraint, constraint.pointA.cluster.get)
-    val mMj = CannotLinkDistance.mM(clusters, constraint.pointA.cluster.get, rj)
+    if(constraint.pointB.cluster.get.points.size > 1) {
+      val rj: Point = CannotLinkDistance.calculateR(constraint, constraint.pointA.cluster.get)
+      val mMj = CannotLinkDistance.mM(clusters, constraint.pointA.cluster.get, rj)
 
-    mMj.addGCLV(constraint.pointA)
-    ClusterUtil.removeFromCluster(constraint.pointB)
-    ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
+      mMj.addGCLV(constraint.pointA)
+      ClusterUtil.removeFromCluster(constraint.pointB)
+      ClusterUtil.addToCluster(constraint.pointB, constraint.pointA.cluster)
+    }
   }
 
   private def calculateCLA(commonDistance: CommonDistance, rtoCMMDistance: CannotLinkDistance) : Double = {

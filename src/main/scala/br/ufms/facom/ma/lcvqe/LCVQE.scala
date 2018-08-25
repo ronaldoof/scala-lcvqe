@@ -75,7 +75,6 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       )
     })
     // add new cluster to history and stack
-
     clusterHistory ++= actClusters
     ReportUtil.reportError(actClusters)
     val error = actClusters.par.map(c => LCVQEError.calcError(actClusters, c)).sum
@@ -85,6 +84,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     } else {
       stack ++= actClusters.filter(c => c.points.size > 1)
     }
+    ReportUtil.countIt("Stack")(stack)
   }
 
 
@@ -131,6 +131,8 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       ReportUtil.printRatioClusterPoint(actClusters)
       ReportUtil.printPointBalance(actClusters, points)
       val finalClusters = actClusters.filter(c => c.points.nonEmpty)
+       // clear the cache
+      removeAll()
 
       if(finalClusters.nonEmpty) {
         // reposition the cluster using LCVQE rules
@@ -138,6 +140,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
       } else {
         false
       }
+
     }
   }
 
@@ -230,7 +233,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     val idOne = Sequence.next()
     val idTwo = Sequence.next()
     val firstCentroid = points.head.copy(id = idOne)
-    val secondCentroid = points.last.copy(id = idTwo)
+    val secondCentroid = points.tail.head.copy(id = idTwo)
     List(Cluster(idOne, firstCentroid, father = Some(father)), Cluster(idTwo, secondCentroid, father = Some(father)))
   }
 
@@ -241,6 +244,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
     * @param clusters the cluster that the root level will be built uppon
     */
   def buildRootLevel(clusters: List[Cluster], brokenConstraints: ListBuffer[Constraint]): Unit ={
+    ReportUtil.countIt[GeoTag]("GeoTags")(this.geoTags.get.toList)
     val geoCannotLink = Constraint.buildCannotLink(this.geoTags.getOrElse(Nil).toSet, clusters.head.level())
     ReportUtil.countIt("GeoCannotLink")(geoCannotLink)
 
@@ -266,7 +270,7 @@ case class LCVQE (data: List[Point], constraints: Option[List[Constraint]], geoT
         val repo = ReportUtil.timeIt("RepositionClusters")(
           clusters.filter(c => c.points.nonEmpty).map(c => c.reposition).reduceLeft(_ || _)
         )
-        removeAll[Double]
+        removeAll()
 
         ReportUtil.printPointBalance(clusters, this.data)
         repo
